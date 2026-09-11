@@ -39,6 +39,7 @@ public class WebVetController {
     private final DiagnosticoService diagnosticoService;
     private final PedidoMedicoService pedidoMedicoService;
     private final fiap.pethub.service.PetService petService;
+    private final fiap.pethub.service.VeterinarioService veterinarioService;
 
     @GetMapping("/dashboard")
     public String dashboard(Model model, @AuthenticationPrincipal UsuarioAutenticado usuario, Pageable pageable) {
@@ -160,5 +161,48 @@ public class WebVetController {
         private LocalDateTime dataHora;
         private fiap.pethub.enums.TipoConsulta tipo;
         private String motivo;
+    }
+
+    @GetMapping("/perfil")
+    public String perfilVet(Model model, @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        fiap.pethub.dto.response.VeterinarioResponse resp = veterinarioService.findById(usuario.getId());
+        VetForm form = new VetForm();
+        form.setNome(resp.getNome());
+        form.setCrmv(resp.getCrmv());
+        form.setEmail(resp.getEmail());
+        form.setEspecialidade(resp.getEspecialidade());
+        model.addAttribute("vetForm", form);
+        return "vet/perfil";
+    }
+
+    @PostMapping("/perfil/editar")
+    public String editarVet(@Valid @ModelAttribute("vetForm") VetForm form, BindingResult result, @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        if (result.hasErrors()) {
+            return "vet/perfil";
+        }
+        fiap.pethub.dto.request.VeterinarioRequest request =    new fiap.pethub.dto.request.VeterinarioRequest(
+            form.getNome(), form.getCrmv(), form.getEspecialidade(), form.getEmail(), null, form.getSenha(), true, null
+        );
+        veterinarioService.update(usuario.getId(), request);
+        return "redirect:/vet/dashboard";
+    }
+
+    @Getter
+    @Setter
+    public static class VetForm {
+        @jakarta.validation.constraints.NotBlank(message = "Nome é obrigatório")
+        private String nome;
+        @jakarta.validation.constraints.NotBlank(message = "CRMV é obrigatório")
+        private String crmv;
+        @jakarta.validation.constraints.NotBlank(message = "E-mail é obrigatório")
+        private String email;
+        private String especialidade;
+        @jakarta.validation.constraints.NotBlank(message = "Senha é obrigatória para atualizar o perfil")
+        private String senha;
+    }
+    @PostMapping("/perfil/deletar")
+    public String deletarVet(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+        veterinarioService.delete(usuario.getId());
+        return "redirect:/logout";
     }
 }

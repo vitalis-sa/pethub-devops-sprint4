@@ -19,7 +19,13 @@
 <div class="container">
     <div class="header">
         <h2>Prontuário: <span th:text="${pet.nome}">Nome</span></h2>
-        <a th:href="@{/tutor/dashboard}" class="btn-back">&laquo; Voltar</a>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <a th:href="@{/tutor/pets/{id}/editar(id=${pet.id})}" class="btn-back" style="color: #0c2476; text-decoration: underline;">Editar Pet</a>
+            <form th:action="@{/tutor/pets/{id}/deletar(id=${pet.id})}" method="post" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este pet?');">
+                <button type="submit" style="background: none; border: none; color: #d9534f; cursor: pointer; text-decoration: underline; font-weight: bold;">Deletar Pet</button>
+            </form>
+            <a th:href="@{/tutor/dashboard}" class="btn-back">&laquo; Voltar</a>
+        </div>
     </div>
 
     <div class="info-card">

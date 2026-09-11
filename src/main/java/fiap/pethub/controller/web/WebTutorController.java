@@ -89,6 +89,70 @@ public class WebTutorController {
         model.addAttribute("exames", exames.getContent());
         return "tutor/pet-detalhes";
     }
+    @PostMapping("/pets/{id}/deletar")
+    public String deletarPet(@PathVariable Long id) {
+        petService.delete(id);
+        return "redirect:/tutor/dashboard";
+    }
+
+    @GetMapping("/pets/{id}/editar")
+    public String editarPetForm(@PathVariable Long id, Model model) {
+        PetResponse pet = petService.findById(id);
+        PetForm form = new PetForm();
+        form.setNome(pet.getNome());
+        form.setEspecie(pet.getEspecie());
+        form.setRaca(pet.getRaca());
+        form.setIdade(pet.getIdade());
+        form.setPeso(pet.getPeso());
+        form.setGenero(pet.getGenero());
+        
+        model.addAttribute("petForm", form);
+        model.addAttribute("petId", id);
+        return "tutor/editar-pet";
+    }
+
+    @PostMapping("/pets/{id}/editar")
+    public String editarPet(@PathVariable Long id, @Valid @ModelAttribute("petForm") PetForm petForm,
+                            BindingResult result, @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        if (result.hasErrors()) {
+            return "tutor/editar-pet";
+        }
+        ResponsavelResponse resp = responsavelService.findById(usuario.getId());
+        PetRequest request = new PetRequest(petForm.getNome(), petForm.getEspecie(), petForm.getRaca(), 
+                                            petForm.getIdade(), petForm.getPeso(), petForm.getGenero(), 
+                                            resp.getCpf(), null);
+        petService.update(id, request);
+        return "redirect:/tutor/dashboard";
+    }
+
+    @PostMapping("/perfil/deletar")
+    public String deletarTutor(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+        responsavelService.delete(usuario.getId());
+        return "redirect:/logout";
+    }
+
+    @GetMapping("/perfil")
+    public String perfilTutor(Model model, @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        ResponsavelResponse resp = responsavelService.findById(usuario.getId());
+        TutorForm form = new TutorForm();
+        form.setNome(resp.getNome());
+        form.setCpf(resp.getCpf());
+        form.setEmail(resp.getEmail());
+        model.addAttribute("tutorForm", form);
+        return "tutor/perfil";
+    }
+
+    @PostMapping("/perfil/editar")
+    public String editarTutor(@Valid @ModelAttribute("tutorForm") TutorForm form, BindingResult result, @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        if (result.hasErrors()) {
+            return "tutor/perfil";
+        }
+        fiap.pethub.dto.request.ResponsavelRequest request = new fiap.pethub.dto.request.ResponsavelRequest(
+            form.getNome(), form.getCpf(), form.getEmail(), form.getSenha(), true
+        );
+        responsavelService.update(usuario.getId(), request);
+        return "redirect:/tutor/dashboard";
+    }
 
     @Getter
     @Setter
@@ -99,5 +163,18 @@ public class WebTutorController {
         private Integer idade;
         private Double peso;
         private String genero;
+    }
+
+    @Getter
+    @Setter
+    public static class TutorForm {
+        @jakarta.validation.constraints.NotBlank(message = "Nome é obrigatório")
+        private String nome;
+        @jakarta.validation.constraints.NotBlank(message = "CPF é obrigatório")
+        private String cpf;
+        @jakarta.validation.constraints.NotBlank(message = "E-mail é obrigatório")
+        private String email;
+        @jakarta.validation.constraints.NotBlank(message = "Senha é obrigatória para atualizar o perfil")
+        private String senha;
     }
 }

@@ -21,6 +21,7 @@ Uma solução completa para o cuidado veterinário, conectando pets, responsáve
 | Maven | Gerenciador de dependências e build do projeto; responsável por baixar bibliotecas e compilar o código |
 | Spring Data JPA | Abstrai o acesso ao banco de dados, gerando automaticamente as queries SQL a partir de interfaces como JpaRepository |
 | Oracle Database (FIAP) | Banco de dados relacional utilizado para persistir os registros de pets, consultas, exames e outros dados da clínica |
+| Thymeleaf | Motor de templates para renderização do Frontend, criando as telas de login e dashboards para Tutor e Vet |
 | Flyway | Controle de versão do schema: aplica as migrations de `db/migration` no boot e registra o que já rodou na tabela `flyway_schema_history` |
 | Spring Security | Autenticação e autorização da API: filtro JWT stateless, regras de acesso por rota e perfil, e BCrypt para o hash das senhas |
 | JJWT (jjwt-api/impl/jackson) | Emissão e verificação dos tokens JWT assinados em HS256 |
@@ -392,6 +393,10 @@ fiap.pethub
 │   └── EscopoDoUsuario.java     → Regra de posse: o que o usuário pode enxergar
 │
 ├── controller/                  → Controladores (endpoints REST)
+│   ├── web/                     → Controladores Web (Thymeleaf)
+│   │   ├── WebAuthController.java
+│   │   ├── WebTutorController.java
+│   │   └── WebVetController.java
 │   ├── AuthController.java
 │   ├── PetsController.java
 │   ├── ConsultasController.java
@@ -468,8 +473,23 @@ fiap.pethub
 │
 └── resources/
     ├── application.properties   → Configurações da aplicação
-    └── db/migration/            → Migrations do Flyway
-        └── V1__schema_inicial.sql
+    ├── db/migration/            → Migrations do Flyway
+    │   └── V1__schema_inicial.sql
+    └── templates/               → Telas do Frontend (Thymeleaf)
+        ├── login.html
+        ├── registrar-tutor.html
+        ├── registrar-vet.html
+        ├── tutor/
+        │   ├── dashboard.html
+        │   ├── novo-pet.html
+        │   ├── editar-pet.html
+        │   ├── pet-detalhes.html
+        │   └── perfil.html
+        └── vet/
+            ├── dashboard.html
+            ├── nova-consulta.html
+            ├── consulta-detalhes.html
+            └── perfil.html
 ```
 
 ## Requisitos Técnicos Atendidos
@@ -483,6 +503,7 @@ fiap.pethub
 | Spring Security — rotas protegidas por perfil | ✅ | `SecurityConfig` por rota e método, mais posse por recurso em `EscopoDoUsuario` |
 | Dois fluxos completos além do CRUD | ✅ | Quatro: vigilância diária de hidratação (`@Scheduled`) e lembretes automáticos de vacina, consulta e pedido médico |
 | Validações nos dados de entrada | ✅ | Bean Validation nos DTOs, com erro 400 detalhado por campo |
+| Frontend com UI/UX | ✅ | Templates Thymeleaf completos em `src/main/resources/templates` (`/tutor` e `/vet`), com login, edição e exclusão de perfil (Tutor/Vet), além do CRUD de Pets, protegidos por sessão |
 
 ### Sprints anteriores
 
@@ -497,7 +518,41 @@ fiap.pethub
 | Utilização de DTOs | ✅ | 15+ DTOs request/response + MapStruct |
 | Documentação com Swagger | ✅ | OpenAPI 3.0 + Swagger UI |
 
-## Prints das telas (Postman)
+## Prints das Telas do Frontend (Thymeleaf)
+As telas abaixo comprovam a integração do backend em Spring Boot com o frontend utilizando o motor de templates Thymeleaf, incluindo o fluxo de cadastro, login (Spring Security) e a navegação (CRUD) protegida por sessão.
+
+### 01 - Tela de Login (`/login`)
+*(Insira a imagem aqui)*
+
+### 02 - Registro de Tutor (`/registrar/tutor`)
+*(Insira a imagem aqui)*
+
+### 03 - Registro de Veterinário (`/registrar/vet`)
+*(Insira a imagem aqui)*
+
+### 04 - Dashboard do Tutor com Pets Cadastrados (`/tutor/dashboard`)
+*(Insira a imagem aqui)*
+
+### 05 - Formulário de Criação de Pet (`/tutor/pets/novo`)
+*(Insira a imagem aqui)*
+
+### 06 - Tela de Edição e Exclusão de Pet (`/tutor/pets/{id}/editar` e Detalhes)
+*(Insira a imagem aqui)*
+
+### 07 - Perfil do Tutor - Atualizar e Deletar (`/tutor/perfil`)
+*(Insira a imagem aqui)*
+
+### 08 - Dashboard do Veterinário com Consultas (`/vet/dashboard`)
+*(Insira a imagem aqui)*
+
+### 09 - Detalhes da Consulta e Prontuário (`/vet/consultas/{id}`)
+*(Insira a imagem aqui)*
+
+### 10 - Perfil do Veterinário - Atualizar e Deletar (`/vet/perfil`)
+*(Insira a imagem aqui)*
+
+
+## Prints das chamadas (Postman)
 Fluxo seguindo as regras de negócio da solução. As capturas são anteriores à introdução do Spring
 Security: para reproduzi-las hoje, autentique-se antes (ver [Acesso à aplicação](#acesso-à-aplicação))
 e envie o cabeçalho `Authorization: Bearer <token>` em todas as chamadas abaixo.

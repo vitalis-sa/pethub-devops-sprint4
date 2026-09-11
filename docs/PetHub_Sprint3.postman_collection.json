@@ -1,0 +1,148 @@
+{
+  "info": {
+    "name": "PetHub API - Sprint 3",
+    "description": "Collection com os testes dos requisitos da Sprint 3: Segurança (Login/Registro) e operações CRUD que faltavam nos prints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Segurança e Autenticação",
+      "item": [
+        {
+          "name": "Registrar Veterinário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Dr. Vet Sprint 3\",\n  \"crmv\": \"SP-99999\",\n  \"email\": \"vet@pethub.com\",\n  \"senha\": \"123456\",\n  \"especialidade\": \"Cirurgia\",\n  \"ativo\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/auth/registrar/veterinario",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "auth", "registrar", "veterinario"]
+            }
+          }
+        },
+        {
+          "name": "Registrar Responsável",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tutor Sprint 3\",\n  \"cpf\": \"12345678901\",\n  \"email\": \"tutor@pethub.com\",\n  \"senha\": \"123456\",\n  \"ativo\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/auth/registrar/responsavel",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "auth", "registrar", "responsavel"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"vet@pethub.com\",\n  \"senha\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Teste Acesso Negado (Sem Token)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/api/pets",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "pets"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Operações de Atualização e Exclusão (Exemplos)",
+      "item": [
+        {
+          "name": "Atualizar Pet",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Bolinha Atualizado\",\n  \"especie\": \"Cachorro\",\n  \"raca\": \"Poodle\",\n  \"idade\": 4,\n  \"peso\": 5.5,\n  \"genero\": \"MACHO\",\n  \"responsavelCpf\": \"12345678901\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/pets/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "pets", "1"]
+            }
+          }
+        },
+        {
+          "name": "Deletar Pet",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/pets/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "pets", "1"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -20,9 +20,12 @@
 <div class="container">
     <div class="header">
         <h2>Bem-vindo(a), <span th:text="${nome}">Tutor</span>!</h2>
-        <form th:action="@{/logout}" method="post" style="display:inline;">
-            <button type="submit" class="btn btn-logout">Sair</button>
-        </form>
+        <div>
+            <a th:href="@{/tutor/perfil}" class="btn" style="background-color: #5bc0de; margin-right: 10px;">Meu Perfil</a>
+            <form th:action="@{/logout}" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-logout">Sair</button>
+            </form>
+        </div>
     </div>
 
     <h3>Meus Pets</h3>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Pet - PetHub</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #fffaee; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { padding: 10px 15px; background-color: #d4751e; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background-color: #b36217; }
+        .btn-cancel { background-color: #0c2476; color: white; text-decoration: none; padding: 10px 15px; border-radius: 4px; display: inline-block; margin-right: 10px; }
+        .btn-cancel:hover { background-color: #081a54; }
+        .error { color: #d9534f; font-size: 0.9em; margin-top: 5px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Editar Pet</h2>
+
+    <form th:action="@{/tutor/pets/{id}/editar(id=${petId})}" th:object="${petForm}" method="post">
+        
+        <div class="form-group">
+            <label for="nome">Nome *</label>
+            <input type="text" id="nome" th:field="*{nome}" required/>
+            <div class="error" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}">Erro de nome</div>
+        </div>
+
+        <div class="form-group">
+            <label for="especie">Espécie *</label>
+            <input type="text" id="especie" th:field="*{especie}" required placeholder="Ex: Cachorro, Gato"/>
+            <div class="error" th:if="${#fields.hasErrors('especie')}" th:errors="*{especie}">Erro de especie</div>
+        </div>
+
+        <div class="form-group">
+            <label for="raca">Raça</label>
+            <input type="text" id="raca" th:field="*{raca}"/>
+        </div>
+
+        <div class="form-group">
+            <label for="idade">Idade (anos)</label>
+            <input type="number" id="idade" th:field="*{idade}"/>
+        </div>
+
+        <div class="form-group">
+            <label for="peso">Peso (kg)</label>
+            <input type="text" id="peso" th:field="*{peso}"/>
+        </div>
+
+        <div class="form-group">
+            <label for="genero">Gênero</label>
+            <input type="text" id="genero" th:field="*{genero}" placeholder="Ex: Macho, Fêmea"/>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <a th:href="@{/tutor/dashboard}" class="btn-cancel">Cancelar</a>
+            <button type="submit" class="btn">Salvar Alterações</button>
+        </div>
+    </form>
+</div>
+</body>
+</html>
