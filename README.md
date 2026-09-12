@@ -96,15 +96,43 @@ Ao subir, a aplicação:
 
 | Recurso | URL |
 |---|---|
-| API | `http://localhost:8080` |
+| **Aplicação web (frontend)** | **`http://localhost:8080`** |
+| API REST | `http://localhost:8080/api` |
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
 | OpenAPI JSON | `http://localhost:8080/api-docs` |
 
 ## Acesso à aplicação
 
-**Toda rota fora de `/api/auth/**` e do Swagger exige um token JWT.** Sem o cabeçalho
-`Authorization`, a resposta é `401`. Este é o caminho mais curto do zero até uma chamada
-autenticada.
+O PetHub tem duas portas de entrada, com formas de autenticação diferentes:
+
+| | Como entra | Para quem |
+|---|---|---|
+| **Telas web** (`/`, `/tutor/**`, `/vet/**`) | Formulário de login, sessão por cookie | Pessoas, no navegador |
+| **API REST** (`/api/**`) | Token JWT no cabeçalho `Authorization` | Aplicativo móvel e integrações |
+
+### Pelo navegador — caminho mais curto
+
+1. Abra **`http://localhost:8080`**. Sem sessão, a aplicação leva você para a tela de login.
+2. Não existe usuário pré-cadastrado. Clique em **"Sou Tutor"** ou **"Sou Veterinário"**
+   e crie a sua conta.
+3. Depois de entrar, cada perfil cai no seu próprio painel:
+
+| Perfil | Painel | O que faz por ali |
+|---|---|---|
+| Tutor (`RESPONSAVEL`) | `/tutor/dashboard` | Cadastra pets, lê o prontuário de cada um e acompanha os lembretes |
+| Veterinário | `/vet/dashboard` | Agenda consultas e registra o prontuário |
+
+Para ver o sistema inteiro funcionando, crie **as duas contas**: o veterinário agenda a
+consulta e preenche o prontuário; o tutor, na conta dele, vê o diagnóstico, o exame pedido
+e os lembretes que o sistema criou sozinho.
+
+> Tentar abrir `/vet/**` logado como tutor (ou o contrário) devolve a página de acesso
+> negado — é o controle de acesso por perfil em ação.
+
+### Pela API
+
+**Toda rota `/api/**` fora de `/api/auth/**` exige um token JWT.** Sem o cabeçalho
+`Authorization`, a resposta é `401`.
 
 ### 1. Criar uma conta
 
@@ -241,10 +269,39 @@ mudou. Corrija sempre com uma versão nova.
 
 ## Fluxos completos (não-CRUD)
 
-Além do CRUD, a aplicação implementa quatro fluxos de negócio que rodam sozinhos, sem ninguém
-chamar um endpoint de lembrete.
+Dois fluxos percorrem a aplicação de ponta a ponta pelo navegador, e outros dois rodam sozinhos
+em segundo plano. Nenhum deles é um CRUD: cada um coordena mais de uma escrita e tem regra de
+negócio própria.
 
-### 1. Vigilância diária de hidratação (agendada)
+### A. Agendamento de consulta com verificação de agenda — `/vet/consultas/nova`
+
+O veterinário escolhe pet, data e tipo. Antes de gravar, o
+[`ConsultaService`](src/main/java/fiap/pethub/service/ConsultaService.java) recusa duas situações:
+
+- **horário ocupado** — o mesmo veterinário já tem consulta naquele instante (consulta cancelada
+  não ocupa agenda);
+- **data no passado** — só para o que está sendo *agendado*; lançar uma consulta que já aconteceu,
+  como `REALIZADA`, continua permitido.
+
+Gravada a consulta, o sistema cria sozinho o lembrete para o tutor. O conflito de agenda volta
+preso ao campo de data, no próprio formulário.
+
+### B. Registro de prontuário e conclusão da consulta — `/vet/consultas/{id}`
+
+O [`ProntuarioService`](src/main/java/fiap/pethub/service/ProntuarioService.java) faz três
+escritas numa transação só: grava o diagnóstico, emite o pedido médico **se** o veterinário pediu
+um, e marca a consulta como `REALIZADA`. Um segundo envio na mesma consulta é recusado, então
+recarregar a página depois de salvar não duplica o diagnóstico.
+
+O resultado aparece na conta do tutor: diagnóstico e exame no prontuário do pet, e o lembrete do
+exame em `/tutor/lembretes`.
+
+---
+
+Os dois fluxos abaixo não têm tela porque ninguém os dispara: acontecem sozinhos e o resultado
+chega ao tutor em **`/tutor/lembretes`**.
+
+### C. Vigilância diária de hidratação (agendada)
 
 O wearable de hidratação envia leituras ao longo do dia. Todo dia às **21h**, o
 [`LeituraWearableService`](src/main/java/fiap/pethub/service/LeituraWearableService.java) apura,
@@ -258,24 +315,24 @@ por pet, quanto foi consumido contra a meta diária e cria um lembrete quando o 
 
 A apuração é paginada, para que a rotina não carregue todas as leituras do dia na memória.
 
-### 2. Lembrete automático de próxima dose
+### D. Lembrete automático de próxima dose
 
 Ao registrar uma vacina ou tratamento com o campo `proximaDose` preenchido, o sistema cria o
 lembrete daquela data, vinculado ao pet e ao responsável. Sem `proximaDose`, nada é criado — é o
 próprio dado clínico que decide.
 
-### 3. Lembrete automático de consulta agendada
+### E. Lembrete automático de consulta agendada
 
 Toda consulta criada gera um lembrete para o responsável do pet, na data e hora do agendamento.
 
-### 4. Lembrete automático de pedido médico
+### F. Lembrete automático de pedido médico
 
 Ao emitir um pedido médico, o tipo do lembrete acompanha o tipo do pedido — `EXAME` ou
 `MEDICAMENTO` — e a data limite vira a data agendada, com as instruções do veterinário no texto.
 
-Todos os quatro caem na mesma entidade `Lembrete`, com `referenciaTipo` e `referenciaId` apontando
-para a origem, e podem ser acompanhados em `GET /api/lembretes` ou marcados como enviados em
-`PATCH /api/lembretes/{id}/status`.
+Todos caem na mesma entidade `Lembrete`, com `referenciaTipo` e `referenciaId` apontando para a
+origem. O tutor os acompanha na tela **`/tutor/lembretes`**, onde marca cada um como visto; pela
+API, em `GET /api/lembretes` e `PATCH /api/lembretes/{id}/status`.
 
 ## Endpoints
 
@@ -501,9 +558,9 @@ fiap.pethub
 | Flyway para versionamento do banco | ✅ | `V1__schema_inicial.sql` com 13 tabelas, 13 sequences e 20 FKs; `ddl-auto=validate` |
 | Spring Security — dois tipos de usuário | ✅ | Perfis `VETERINARIO` e `RESPONSAVEL`, autenticação JWT com senha em BCrypt |
 | Spring Security — rotas protegidas por perfil | ✅ | `SecurityConfig` por rota e método, mais posse por recurso em `EscopoDoUsuario` |
-| Dois fluxos completos além do CRUD | ✅ | Quatro: vigilância diária de hidratação (`@Scheduled`) e lembretes automáticos de vacina, consulta e pedido médico |
-| Validações nos dados de entrada | ✅ | Bean Validation nos DTOs, com erro 400 detalhado por campo |
-| Frontend com UI/UX | ✅ | Templates Thymeleaf completos em `src/main/resources/templates` (`/tutor` e `/vet`), com login, edição e exclusão de perfil (Tutor/Vet), além do CRUD de Pets, protegidos por sessão |
+| Dois fluxos completos além do CRUD | ✅ | Agendamento com verificação de agenda e registro de prontuário (`ProntuarioService`), ambos pela tela; mais dois automáticos: vigilância de hidratação (`@Scheduled`) e lembretes de próxima dose |
+| Validações nos formulários e nos dados | ✅ | Bean Validation nos DTOs e em todo formulário web, com erro exibido campo a campo; regras de negócio em `RegraDeNegocioException` |
+| Frontend com UI/UX | ✅ | Thymeleaf em `src/main/resources/templates`, folha de estilo única em `static/css/app.css`, página de erro própria e rotas separadas por perfil (`/tutor`, `/vet`) |
 
 ### Sprints anteriores
 

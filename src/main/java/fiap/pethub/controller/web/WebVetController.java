@@ -1,21 +1,28 @@
 package fiap.pethub.controller.web;
 
-import fiap.pethub.dto.request.DiagnosticoRequest;
-import fiap.pethub.dto.request.PedidoMedicoRequest;
+import fiap.pethub.dto.request.ConsultaRequest;
+import fiap.pethub.dto.request.ProntuarioRequest;
+import fiap.pethub.dto.request.VeterinarioRequest;
 import fiap.pethub.dto.response.ConsultaResponse;
-import fiap.pethub.dto.response.DiagnosticoResponse;
-import fiap.pethub.dto.response.PedidoMedicoResponse;
-import fiap.pethub.enums.StatusPedidoMedico;
+import fiap.pethub.dto.response.VeterinarioResponse;
+import fiap.pethub.enums.StatusConsulta;
+import fiap.pethub.enums.TipoConsulta;
 import fiap.pethub.enums.TipoPedidoMedico;
+import fiap.pethub.exception.RegraDeNegocioException;
 import fiap.pethub.security.UsuarioAutenticado;
 import fiap.pethub.service.ConsultaService;
-import fiap.pethub.service.DiagnosticoService;
-import fiap.pethub.service.PedidoMedicoService;
+import fiap.pethub.service.PetService;
+import fiap.pethub.service.ProntuarioService;
+import fiap.pethub.service.VeterinarioService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -27,34 +34,41 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Telas do veterinário: a agenda dele, o agendamento e o fechamento da consulta.
+ *
+ * O controller recebe o formulário, entrega ao serviço e escolhe a próxima
+ * página. Quem sabe o que é fechar uma consulta é o {@link ProntuarioService}.
+ */
 @Controller
 @RequestMapping("/vet")
 @RequiredArgsConstructor
 public class WebVetController {
 
     private final ConsultaService consultaService;
-    private final DiagnosticoService diagnosticoService;
-    private final PedidoMedicoService pedidoMedicoService;
-    private final fiap.pethub.service.PetService petService;
-    private final fiap.pethub.service.VeterinarioService veterinarioService;
+    private final ProntuarioService prontuarioService;
+    private final PetService petService;
+    private final VeterinarioService veterinarioService;
+
+    // ─── Agenda ───────────────────────────────────────────────────────────────
 
     @GetMapping("/dashboard")
-    public String dashboard(Model model, @AuthenticationPrincipal UsuarioAutenticado usuario, Pageable pageable) {
-        // Busca todas as consultas vinculadas ao veterinário logado
-        Page<ConsultaResponse> consultas = consultaService.findAll(null, usuario.getId(), null, pageable);
-        model.addAttribute("consultas", consultas.getContent());
+    public String dashboard(Model model, @AuthenticationPrincipal UsuarioAutenticado usuario,
+                            Pageable pageable) {
+        model.addAttribute("consultas",
+                consultaService.findAll(null, usuario.getId(), null, pageable).getContent());
         model.addAttribute("nome", usuario.getNome());
         return "vet/dashboard";
     }
 
+    // ─── Agendamento ──────────────────────────────────────────────────────────
+
     @GetMapping("/consultas/nova")
     public String novaConsultaForm(Model model, Pageable pageable) {
         model.addAttribute("consultaForm", new ConsultaForm());
-        model.addAttribute("pets", petService.findAll(null, null, pageable).getContent());
-        model.addAttribute("tiposConsulta", fiap.pethub.enums.TipoConsulta.values());
+        prepararFormularioDeConsulta(model, pageable);
         return "vet/nova-consulta";
     }
 
@@ -64,145 +78,152 @@ public class WebVetController {
                                   @AuthenticationPrincipal UsuarioAutenticado usuario,
                                   Model model, Pageable pageable) {
         if (result.hasErrors()) {
-            model.addAttribute("pets", petService.findAll(null, null, pageable).getContent());
-            model.addAttribute("tiposConsulta", fiap.pethub.enums.TipoConsulta.values());
+            prepararFormularioDeConsulta(model, pageable);
             return "vet/nova-consulta";
         }
-        
-        fiap.pethub.dto.request.ConsultaRequest request = new fiap.pethub.dto.request.ConsultaRequest(
-                form.getDataHora(),
-                form.getTipo(),
-                form.getMotivo(),
-                fiap.pethub.enums.StatusConsulta.AGENDADA,
-                form.getPetId(),
-                usuario.getId(),
-                null // unidadeId
-        );
-        
-        consultaService.create(request);
+        try {
+            consultaService.create(new ConsultaRequest(
+                    form.getDataHora(), form.getTipo(), form.getMotivo(),
+                    StatusConsulta.AGENDADA, form.getPetId(), usuario.getId(), null));
+        } catch (RegraDeNegocioException e) {
+            // Conflito de agenda é erro do horário escolhido, então volta preso
+            // ao campo que o veterinário precisa corrigir.
+            result.rejectValue("dataHora", "agenda.ocupada", e.getMessage());
+            prepararFormularioDeConsulta(model, pageable);
+            return "vet/nova-consulta";
+        }
         return "redirect:/vet/dashboard";
     }
 
+    // ─── Prontuário ───────────────────────────────────────────────────────────
+
     @GetMapping("/consultas/{id}")
-    public String detalhesConsulta(@PathVariable Long id, Model model, Pageable pageable) {
-        ConsultaResponse consulta = consultaService.findById(id);
-        
-        model.addAttribute("consulta", consulta);
-        model.addAttribute("prontuarioForm", new ProntuarioForm());
+    public String detalhesConsulta(@PathVariable Long id, Model model) {
+        model.addAttribute("consulta", consultaService.findById(id));
+        model.addAttribute("prontuarioForm", new ProntuarioRequest());
         model.addAttribute("tiposPedido", TipoPedidoMedico.values());
-        
         return "vet/consulta-detalhes";
     }
 
     @PostMapping("/consultas/{id}/prontuario")
     public String salvarProntuario(@PathVariable Long id,
-                                   @Valid @ModelAttribute("prontuarioForm") ProntuarioForm form,
+                                   @Valid @ModelAttribute("prontuarioForm") ProntuarioRequest form,
                                    BindingResult result,
                                    Model model) {
-        ConsultaResponse consulta = consultaService.findById(id);
-        
+        if (form.pedidoIncompleto()) {
+            result.rejectValue("descricao", "pedido.incompleto",
+                    "Para solicitar um exame, preencha o tipo e a descrição.");
+        }
         if (result.hasErrors()) {
-            model.addAttribute("consulta", consulta);
-            model.addAttribute("tiposPedido", TipoPedidoMedico.values());
-            return "vet/consulta-detalhes";
+            return prepararProntuario(id, model);
         }
-        
-        // 1. Salva Diagnóstico (sempre)
-        DiagnosticoRequest diagRequest = new DiagnosticoRequest(
-                consulta.getPetId(),
-                consulta.getId(),
-                LocalDateTime.now(),
-                form.getSintoma1(),
-                null, null, null, null,
-                false, false, false, false, false, false, false, false, false,
-                null, null,
-                form.getDoencaPredita(),
-                null, null
-        );
-        diagnosticoService.create(diagRequest);
-        
-        // 2. Salva Pedido Médico apenas se o tipo foi selecionado e houver descrição
-        if (form.getTipo() != null && form.getDescricao() != null && !form.getDescricao().trim().isEmpty()) {
-            PedidoMedicoRequest pedidoRequest = new PedidoMedicoRequest(
-                    consulta.getId(),
-                    consulta.getPetId(),
-                    form.getTipo(),
-                    form.getDescricao(),
-                    form.getInstrucoes(),
-                    LocalDate.now().plusDays(7),
-                    StatusPedidoMedico.PENDENTE
-            );
-            pedidoMedicoService.create(pedidoRequest);
+        try {
+            prontuarioService.registrar(id, form);
+        } catch (RegraDeNegocioException e) {
+            result.reject("prontuario.duplicado", e.getMessage());
+            return prepararProntuario(id, model);
         }
-        
-        // Atualiza a consulta para REALIZADA? Opcional. Se tiver, poderiamos chamar consultaService.updateStatus(id, REALIZADA)
-        
         return "redirect:/vet/dashboard";
     }
 
-    @Getter
-    @Setter
-    public static class ProntuarioForm {
-        @jakarta.validation.constraints.NotBlank(message = "Sintoma é obrigatório")
-        private String sintoma1;
-        
-        private String doencaPredita;
-        
-        // Pedido Medico (opcional)
-        private TipoPedidoMedico tipo;
-        private String descricao;
-        private String instrucoes;
+    // ─── Perfil ───────────────────────────────────────────────────────────────
+
+    @GetMapping("/perfil")
+    public String perfil(Model model, @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        model.addAttribute("vetForm", VetForm.de(veterinarioService.findById(usuario.getId())));
+        return "vet/perfil";
+    }
+
+    @PostMapping("/perfil/editar")
+    public String editarPerfil(@Valid @ModelAttribute("vetForm") VetForm form,
+                               BindingResult result,
+                               @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        if (result.hasErrors()) {
+            return "vet/perfil";
+        }
+        VeterinarioResponse atual = veterinarioService.findById(usuario.getId());
+        // O CRMV vem do cadastro, e não do formulário: é registro profissional e
+        // a tela o mostra apenas para leitura.
+        veterinarioService.update(usuario.getId(), new VeterinarioRequest(
+                form.getNome(), atual.getCrmv(), form.getEspecialidade(), form.getEmail(),
+                form.getTelefone(), form.getSenha(), true, null));
+        return "redirect:/vet/dashboard";
+    }
+
+    /**
+     * Encerrar a conta do veterinário desativa o acesso em vez de apagar o
+     * cadastro — o nome dele assina prontuários que continuam valendo.
+     */
+    @PostMapping("/perfil/deletar")
+    public String encerrarConta(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+        veterinarioService.desativar(usuario.getId());
+        return "redirect:/logout";
+    }
+
+    private void prepararFormularioDeConsulta(Model model, Pageable pageable) {
+        model.addAttribute("pets", petService.findAll(null, null, pageable).getContent());
+        model.addAttribute("tiposConsulta", TipoConsulta.values());
+    }
+
+    /** Recarrega o que a tela do prontuário precisa quando o formulário volta com erro. */
+    private String prepararProntuario(Long consultaId, Model model) {
+        ConsultaResponse consulta = consultaService.findById(consultaId);
+        model.addAttribute("consulta", consulta);
+        model.addAttribute("tiposPedido", TipoPedidoMedico.values());
+        return "vet/consulta-detalhes";
     }
 
     @Getter
     @Setter
     public static class ConsultaForm {
+
+        @NotNull(message = "Selecione o pet")
         private Long petId;
+
+        @NotNull(message = "Informe a data e a hora")
+        @Future(message = "A consulta precisa ser marcada para uma data futura")
         private LocalDateTime dataHora;
-        private fiap.pethub.enums.TipoConsulta tipo;
+
+        @NotNull(message = "Selecione o tipo da consulta")
+        private TipoConsulta tipo;
+
+        @Size(max = 255, message = "Motivo deve ter no máximo 255 caracteres")
         private String motivo;
-    }
-
-    @GetMapping("/perfil")
-    public String perfilVet(Model model, @AuthenticationPrincipal UsuarioAutenticado usuario) {
-        fiap.pethub.dto.response.VeterinarioResponse resp = veterinarioService.findById(usuario.getId());
-        VetForm form = new VetForm();
-        form.setNome(resp.getNome());
-        form.setCrmv(resp.getCrmv());
-        form.setEmail(resp.getEmail());
-        form.setEspecialidade(resp.getEspecialidade());
-        model.addAttribute("vetForm", form);
-        return "vet/perfil";
-    }
-
-    @PostMapping("/perfil/editar")
-    public String editarVet(@Valid @ModelAttribute("vetForm") VetForm form, BindingResult result, @AuthenticationPrincipal UsuarioAutenticado usuario) {
-        if (result.hasErrors()) {
-            return "vet/perfil";
-        }
-        fiap.pethub.dto.request.VeterinarioRequest request =    new fiap.pethub.dto.request.VeterinarioRequest(
-            form.getNome(), form.getCrmv(), form.getEspecialidade(), form.getEmail(), null, form.getSenha(), true, null
-        );
-        veterinarioService.update(usuario.getId(), request);
-        return "redirect:/vet/dashboard";
     }
 
     @Getter
     @Setter
     public static class VetForm {
-        @jakarta.validation.constraints.NotBlank(message = "Nome é obrigatório")
+
+        @NotBlank(message = "Nome é obrigatório")
+        @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
         private String nome;
-        @jakarta.validation.constraints.NotBlank(message = "CRMV é obrigatório")
+
+        /** Só de leitura na tela; vai junto para que o formulário volte preenchido. */
         private String crmv;
-        @jakarta.validation.constraints.NotBlank(message = "E-mail é obrigatório")
+
+        @NotBlank(message = "E-mail é obrigatório")
+        @Email(message = "E-mail inválido")
         private String email;
+
+        @Size(max = 100, message = "Especialidade deve ter no máximo 100 caracteres")
         private String especialidade;
-        @jakarta.validation.constraints.NotBlank(message = "Senha é obrigatória para atualizar o perfil")
+
+        @Size(max = 20, message = "Telefone deve ter no máximo 20 caracteres")
+        private String telefone;
+
+        @NotBlank(message = "Confirme a senha para salvar as alterações")
+        @Size(min = 6, message = "Senha deve ter ao menos 6 caracteres")
         private String senha;
-    }
-    @PostMapping("/perfil/deletar")
-    public String deletarVet(@AuthenticationPrincipal UsuarioAutenticado usuario) {
-        veterinarioService.delete(usuario.getId());
-        return "redirect:/logout";
+
+        static VetForm de(VeterinarioResponse vet) {
+            VetForm form = new VetForm();
+            form.setNome(vet.getNome());
+            form.setCrmv(vet.getCrmv());
+            form.setEmail(vet.getEmail());
+            form.setEspecialidade(vet.getEspecialidade());
+            form.setTelefone(vet.getTelefone());
+            return form;
+        }
     }
 }

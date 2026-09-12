@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ExameRepository extends JpaRepository<Exame, Long> {
     Page<Exame> findByPetId(Long petId, Pageable pageable);
 
+    /** Usado na remocao em cascata de um pet. */
+    void deleteByPetId(Long petId);
+
     /** Todos os registros dos pets de um responsavel. Base do filtro por posse. */
     Page<Exame> findByPetResponsavelId(Long responsavelId, Pageable pageable);
     Page<Exame> findByConsultaId(Long consultaId, Pageable pageable);

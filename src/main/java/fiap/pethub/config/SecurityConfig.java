@@ -2,6 +2,8 @@ package fiap.pethub.config;
 
 import fiap.pethub.enums.Perfil;
 import fiap.pethub.security.JwtAuthenticationFilter;
+import fiap.pethub.security.PaginaInicial;
+import fiap.pethub.security.UsuarioAutenticado;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -94,25 +96,20 @@ public class SecurityConfig {
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
                         .requestMatchers("/login", "/registrar/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**").permitAll()
-                        
-                        // Rotas Web para o Tutor (Responsável)
+                        // A pagina de erro precisa abrir para quem ainda nao entrou,
+                        // senao um 404 de visitante vira um redirecionamento ao login.
+                        .requestMatchers("/error").permitAll()
+
                         .requestMatchers("/tutor/**").hasRole(TUTOR)
-                        
-                        // Rotas Web para o Veterinário
                         .requestMatchers("/vet/**").hasRole(VET)
-                        
+
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
                         .successHandler((request, response, authentication) -> {
-                            boolean isVet = authentication.getAuthorities().stream()
-                                    .anyMatch(a -> a.getAuthority().equals("ROLE_" + VET));
-                            if (isVet) {
-                                response.sendRedirect("/vet/dashboard");
-                            } else {
-                                response.sendRedirect("/tutor/dashboard");
-                            }
+                            UsuarioAutenticado usuario = (UsuarioAutenticado) authentication.getPrincipal();
+                            response.sendRedirect(PaginaInicial.de(usuario.getPerfil()));
                         })
                         .permitAll()
                 )

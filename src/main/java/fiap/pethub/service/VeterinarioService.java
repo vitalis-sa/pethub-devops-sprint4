@@ -70,6 +70,21 @@ public class VeterinarioService {
         return mapper.toResponse(repository.save(entity));
     }
 
+    /**
+     * Encerrar a conta do veterinário desativa o acesso em vez de apagar o
+     * cadastro. O nome dele assina consultas, vacinas e diagnósticos de outras
+     * pessoas: apagar a linha ou levaria o prontuário junto, ou deixaria o
+     * registro sem autor. {@code ativo = false} tira o acesso na hora, porque é
+     * o que UsuarioAutenticado consulta para permitir o login.
+     */
+    @Transactional
+    @CacheEvict(value = "veterinarios", key = "#id")
+    public VeterinarioResponse desativar(Long id) {
+        Veterinario entity = findEntityById(id);
+        entity.setAtivo(false);
+        return mapper.toResponse(repository.save(entity));
+    }
+
     @Transactional
     @CacheEvict(value = "veterinarios", key = "#id")
     public DeleteResponse delete(Long id) {

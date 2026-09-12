@@ -2,80 +2,75 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Detalhes do Pet - PetHub</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #fffaee; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-        .btn-back { color: #d4751e; text-decoration: none; font-weight: bold; }
-        .btn-back:hover { text-decoration: underline; color: #b36217; }
-        .info-card { background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #d4751e; }
-        .history-item { border-bottom: 1px solid #eee; padding: 15px 0; }
-        .history-item:last-child { border-bottom: none; }
-        .badge { display: inline-block; padding: 3px 8px; font-size: 0.8em; border-radius: 12px; background: #0c2476; color: white; }
-    </style>
+    <title>Prontuário do Pet - PetHub</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <div class="container">
     <div class="header">
         <h2>Prontuário: <span th:text="${pet.nome}">Nome</span></h2>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <a th:href="@{/tutor/pets/{id}/editar(id=${pet.id})}" class="btn-back" style="color: #0c2476; text-decoration: underline;">Editar Pet</a>
-            <form th:action="@{/tutor/pets/{id}/deletar(id=${pet.id})}" method="post" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja deletar este pet?');">
-                <button type="submit" style="background: none; border: none; color: #d9534f; cursor: pointer; text-decoration: underline; font-weight: bold;">Deletar Pet</button>
+        <div class="acoes">
+            <a th:href="@{/tutor/pets/{id}/editar(id=${pet.id})}" class="btn btn--azul">Editar</a>
+            <form th:action="@{/tutor/pets/{id}/deletar(id=${pet.id})}" method="post"
+                  onsubmit="return confirm('Excluir este pet apaga também todo o histórico clínico dele: consultas, diagnósticos, exames e lembretes. Deseja continuar?');">
+                <button type="submit" class="btn btn--perigo">Excluir pet</button>
             </form>
-            <a th:href="@{/tutor/dashboard}" class="btn-back">&laquo; Voltar</a>
+            <a th:href="@{/tutor/dashboard}" class="link-voltar">&laquo; Voltar</a>
         </div>
     </div>
 
     <div class="info-card">
-        <strong>Espécie/Raça:</strong> <span th:text="${pet.especie}"></span> <span th:text="${pet.raca != null ? ' - ' + pet.raca : ''}"></span><br>
-        <strong>Idade:</strong> <span th:text="${pet.idade != null ? pet.idade + ' anos' : 'N/A'}"></span><br>
-        <strong>Gênero:</strong> <span th:text="${pet.genero ?: 'N/A'}"></span><br>
-        <strong>Peso:</strong> <span th:text="${pet.peso != null ? pet.peso + ' kg' : 'N/A'}"></span>
+        <strong>Espécie/Raça:</strong>
+        <span th:text="${pet.especie}"></span><span th:text="${pet.raca != null ? ' - ' + pet.raca : ''}"></span><br>
+        <strong>Idade:</strong> <span th:text="${pet.idade != null ? pet.idade + ' anos' : 'Não informada'}"></span><br>
+        <strong>Gênero:</strong> <span th:text="${pet.genero ?: 'Não informado'}"></span><br>
+        <strong>Peso:</strong> <span th:text="${pet.peso != null ? pet.peso + ' kg' : 'Não informado'}"></span>
     </div>
 
-    <h3>Histórico de Consultas</h3>
-    
-    <div th:if="${#lists.isEmpty(consultas)}">
-        <p>Este pet ainda não possui histórico de consultas registrado.</p>
+    <h3>Histórico de consultas</h3>
+    <p th:if="${#lists.isEmpty(consultas)}" class="vazio">
+        Este pet ainda não possui consultas registradas.
+    </p>
+    <div th:each="consulta : ${consultas}" class="history-item">
+        <strong>Data:</strong>
+        <span th:text="${#temporals.format(consulta.dataHora, 'dd/MM/yyyy HH:mm')}"></span>
+        <span class="badge"
+              th:classappend="${consulta.status.name() == 'REALIZADA'} ? 'badge--verde' : ''"
+              th:text="${consulta.status}">STATUS</span><br>
+        <strong>Veterinário(a):</strong> <span th:text="${consulta.nomeVeterinario}"></span><br>
+        <strong>Motivo:</strong> <span th:text="${consulta.observacoes ?: '—'}"></span>
     </div>
 
-    <div th:unless="${#lists.isEmpty(consultas)}">
-        <div th:each="consulta : ${consultas}" class="history-item">
-            <strong>Data:</strong> <span th:text="${#temporals.format(consulta.dataHora, 'dd/MM/yyyy HH:mm')}"></span>
-            <span class="badge" th:text="${consulta.status}">STATUS</span><br>
-            <br>
-            <strong>Veterinário(a):</strong> <span th:text="${consulta.nomeVeterinario}">Nome do Vet</span><br>
-            <strong>Motivo:</strong> <span th:text="${consulta.observacoes}">Motivo</span><br>
-        </div>
+    <h3>Diagnósticos registrados</h3>
+    <p th:if="${#lists.isEmpty(diagnosticos)}" class="vazio">
+        Nenhum diagnóstico registrado até o momento.
+    </p>
+    <div th:each="diag : ${diagnosticos}" class="history-item">
+        <strong>Data:</strong>
+        <span th:text="${#temporals.format(diag.data, 'dd/MM/yyyy HH:mm')}"></span><br>
+        <strong>Sintoma:</strong> <span th:text="${diag.sintoma1}"></span><br>
+        <span th:if="${diag.doencaPredita != null}">
+            <strong>Possível doença:</strong> <span th:text="${diag.doencaPredita}"></span>
+        </span>
     </div>
 
-    <br>
-    <h3>Diagnósticos Registrados</h3>
-    <div th:if="${#lists.isEmpty(diagnosticos)}">
-        <p style="color: #666; font-style: italic;">Nenhum diagnóstico registrado até o momento.</p>
-    </div>
-    <div th:unless="${#lists.isEmpty(diagnosticos)}">
-        <div th:each="diag : ${diagnosticos}" class="history-item">
-            <strong>Data:</strong> <span th:text="${#temporals.format(diag.data, 'dd/MM/yyyy HH:mm')}"></span><br>
-            <strong>Sintoma:</strong> <span th:text="${diag.sintoma1}"></span><br>
-            <strong th:if="${diag.doencaPredita != null}">Possível Doença:</strong> <span th:text="${diag.doencaPredita}"></span>
-        </div>
-    </div>
-
-    <br>
-    <h3>Exames Solicitados</h3>
-    <div th:if="${#lists.isEmpty(exames)}">
-        <p style="color: #666; font-style: italic;">Nenhum exame solicitado até o momento.</p>
-    </div>
-    <div th:unless="${#lists.isEmpty(exames)}">
-        <div th:each="exame : ${exames}" class="history-item">
-            <strong>Data Limite:</strong> <span th:text="${#temporals.format(exame.dataLimite, 'dd/MM/yyyy')}"></span>
-            <span class="badge" th:text="${exame.status}">STATUS</span><br>
-            <strong>Exame:</strong> <span th:text="${exame.descricao}"></span> (<span th:text="${exame.tipo}"></span>)<br>
-            <strong th:if="${exame.instrucoes != null}">Instruções:</strong> <span th:text="${exame.instrucoes}"></span>
-        </div>
+    <h3>Exames e pedidos médicos</h3>
+    <p th:if="${#lists.isEmpty(exames)}" class="vazio">
+        Nenhum exame solicitado até o momento.
+    </p>
+    <div th:each="exame : ${exames}" class="history-item">
+        <span th:if="${exame.dataLimite != null}">
+            <strong>Prazo:</strong>
+            <span th:text="${#temporals.format(exame.dataLimite, 'dd/MM/yyyy')}"></span>
+        </span>
+        <span class="badge"
+              th:classappend="${exame.status.name() == 'CONCLUIDO'} ? 'badge--verde' : ''"
+              th:text="${exame.status}">STATUS</span><br>
+        <strong>Pedido:</strong> <span th:text="${exame.descricao}"></span>
+        (<span th:text="${exame.tipo}"></span>)<br>
+        <span th:if="${exame.instrucoes != null}">
+            <strong>Instruções:</strong> <span th:text="${exame.instrucoes}"></span>
+        </span>
     </div>
 </div>
 </body>

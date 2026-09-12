@@ -33,6 +33,7 @@ public class PetService {
     private final VeterinarioRepository veterinarioRepository;
     private final PetMapper mapper;
     private final EscopoDoUsuario escopo;
+    private final RemocaoEmCascata remocao;
 
     public Page<PetResponse> findAll(String nome, Long veterinarioId, Pageable pageable) {
         return (escopo.ehVeterinario()
@@ -104,6 +105,7 @@ public class PetService {
     public DeleteResponse delete(Long id) {
         Pet entidade = findEntityById(id);
         escopo.exigirPosse(entidade.getResponsavel().getId());
+        remocao.apagarHistoricoDoPet(id);
         repository.delete(entidade);
         return DeleteResponse.of("Pet", id);
     }

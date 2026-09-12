@@ -1,0 +1,276 @@
+/*
+ * Estilo único do PetHub.
+ *
+ * Antes cada template carregava a sua própria cópia destas regras. Um ajuste de
+ * cor exigia doze edições, e bastava esquecer uma para a tela destoar. Aqui as
+ * regras existem uma vez só.
+ */
+
+:root {
+    --laranja: #d4751e;
+    --laranja-escuro: #b36217;
+    --azul: #0c2476;
+    --azul-escuro: #081a54;
+    --vermelho: #d9534f;
+    --vermelho-escuro: #c9302c;
+    --creme: #fffaee;
+    --borda: #ddd;
+    --texto: #333;
+    --texto-suave: #666;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: var(--creme);
+    color: var(--texto);
+    margin: 0;
+    padding: 20px;
+}
+
+/* ── Caixa central ───────────────────────────────────────────────────────── */
+
+.container {
+    max-width: 800px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.container--media { max-width: 600px; }
+.container--estreita { max-width: 500px; }
+
+/* Telas sem menu, como login: caixa centralizada na vertical. */
+.centralizada {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+    margin: 0;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.header h2 { margin: 0; }
+
+/* ── Botões e links ──────────────────────────────────────────────────────── */
+
+.btn {
+    display: inline-block;
+    padding: 8px 15px;
+    background-color: var(--laranja);
+    color: #fff;
+    text-decoration: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    font-family: inherit;
+}
+
+.btn:hover { background-color: var(--laranja-escuro); }
+
+.btn--largo { width: 100%; padding: 10px; font-size: 16px; }
+.btn--azul { background-color: var(--azul); }
+.btn--azul:hover { background-color: var(--azul-escuro); }
+.btn--claro { background-color: #5bc0de; }
+.btn--claro:hover { background-color: #46b8da; }
+.btn--perigo { background-color: var(--vermelho); }
+.btn--perigo:hover { background-color: var(--vermelho-escuro); }
+
+/* Botão que precisa parecer um link — usado dentro de formulários POST. */
+.btn-texto {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--vermelho);
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: bold;
+    font-size: 1em;
+    font-family: inherit;
+}
+
+.link-voltar {
+    color: var(--laranja);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.link-voltar:hover { text-decoration: underline; color: var(--laranja-escuro); }
+
+.link-rodape {
+    display: block;
+    text-align: center;
+    margin-top: 15px;
+    color: var(--azul);
+    text-decoration: none;
+}
+
+/* ── Formulários ─────────────────────────────────────────────────────────── */
+
+.form-group { margin-bottom: 15px; }
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--texto-suave);
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 1em;
+}
+
+input[readonly] {
+    background-color: #f4f4f4;
+    color: var(--texto-suave);
+    cursor: not-allowed;
+}
+
+.ajuda {
+    display: block;
+    margin-top: 4px;
+    color: var(--texto-suave);
+    font-size: 0.85em;
+    font-weight: normal;
+}
+
+.form-section {
+    border: 1px solid var(--borda);
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.form-section h3 { margin-top: 0; }
+
+.acoes { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+
+/* ── Mensagens ───────────────────────────────────────────────────────────── */
+
+.aviso {
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.aviso--erro {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.aviso--sucesso {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+/* Erro de validação preso ao campo. */
+.error {
+    color: var(--vermelho);
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.vazio { color: var(--texto-suave); font-style: italic; }
+
+/* ── Listagens ───────────────────────────────────────────────────────────── */
+
+.card {
+    border: 1px solid var(--borda);
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.card--linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.card a {
+    color: var(--azul);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.card a:hover { text-decoration: underline; }
+
+.info-card {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--laranja);
+}
+
+.info-card--azul {
+    background: #f0f4f8;
+    border-left-color: var(--azul);
+}
+
+.history-item {
+    border-bottom: 1px solid #eee;
+    padding: 15px 0;
+}
+
+.history-item:last-child { border-bottom: none; }
+
+.badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 0.8em;
+    border-radius: 12px;
+    background: var(--laranja);
+    color: #fff;
+}
+
+.badge--azul { background: var(--azul); }
+.badge--verde { background: #5cb85c; }
+.badge--cinza { background: #999; }
+
+.separador {
+    margin-top: 30px;
+    border: 0;
+    border-top: 1px solid #eee;
+}
+
+/* ── Página de erro ──────────────────────────────────────────────────────── */
+
+.erro-codigo {
+    font-size: 4em;
+    font-weight: bold;
+    color: var(--laranja);
+    margin: 0;
+    line-height: 1;
+}

@@ -13,6 +13,9 @@ public interface LeituraWearableRepository extends JpaRepository<LeituraWearable
 
     Page<LeituraWearable> findByPetId(Long petId, Pageable pageable);
 
+    /** Usado na remocao em cascata de um pet. */
+    void deleteByPetId(Long petId);
+
     /** Todos os registros dos pets de um responsavel. Base do filtro por posse. */
     Page<LeituraWearable> findByPetResponsavelId(Long responsavelId, Pageable pageable);
 

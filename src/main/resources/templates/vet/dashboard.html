@@ -2,54 +2,45 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Minhas Consultas - PetHub Vet</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #fffaee; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-        .btn { padding: 8px 15px; background-color: #d4751e; color: white; text-decoration: none; border: none; border-radius: 4px; cursor: pointer; }
-        .btn:hover { background-color: #b36217; }
-        .btn-logout { background-color: #0c2476; }
-        .btn-logout:hover { background-color: #081a54; }
-        .consulta-card { border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 10px; }
-        .consulta-card a { color: #0c2476; text-decoration: none; font-weight: bold; font-size: 1.1em; }
-        .consulta-card a:hover { text-decoration: underline; color: #081a54; }
-        .badge { display: inline-block; padding: 3px 8px; font-size: 0.8em; border-radius: 12px; background: #d4751e; color: white; }
-    </style>
+    <title>Minha Agenda - PetHub Vet</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h2>Painel do Veterinário: <span th:text="${nome}">Vet</span></h2>
-        <div>
-            <a th:href="@{/vet/perfil}" class="btn" style="background-color: #5bc0de; margin-right: 10px;">Meu Perfil</a>
+        <h2>Painel do veterinário: <span th:text="${nome}">Vet</span></h2>
+        <div class="acoes">
+            <a th:href="@{/vet/perfil}" class="btn btn--azul">Meu perfil</a>
             <form th:action="@{/logout}" method="post" style="display:inline;">
-                <button type="submit" class="btn btn-logout">Sair</button>
+                <button type="submit" class="btn btn--azul">Sair</button>
             </form>
         </div>
     </div>
 
-    <h3>Consultas Agendadas</h3>
-    
-    <div th:if="${#lists.isEmpty(consultas)}">
-        <p>Você não possui nenhuma consulta no momento.</p>
+    <h3>Minhas consultas</h3>
+
+    <p th:if="${#lists.isEmpty(consultas)}" class="vazio">
+        Você não possui nenhuma consulta no momento.
+    </p>
+
+    <div th:each="consulta : ${consultas}" class="card">
+        <div class="card--linha">
+            <a th:href="@{/vet/consultas/{id}(id=${consulta.id})}">
+                Consulta de <span th:text="${#temporals.format(consulta.dataHora, 'dd/MM/yyyy HH:mm')}"></span>
+            </a>
+            <span class="badge"
+                  th:classappend="${consulta.status.name() == 'REALIZADA'} ? 'badge--verde' : ''"
+                  th:text="${consulta.status}">STATUS</span>
+        </div>
+        <p style="margin: 8px 0 0 0; color: #555;">
+            <strong>Pet:</strong> <span th:text="${consulta.nomePet}"></span> &middot;
+            <strong>Motivo:</strong> <span th:text="${consulta.observacoes ?: '—'}"></span>
+        </p>
     </div>
 
-    <div th:unless="${#lists.isEmpty(consultas)}">
-        <div th:each="consulta : ${consultas}" class="consulta-card">
-            <a th:href="@{/vet/consultas/{id}(id=${consulta.id})}">
-                Consulta <span th:text="${#temporals.format(consulta.dataHora, 'dd/MM/yyyy HH:mm')}"></span>
-            </a>
-            <span class="badge" th:text="${consulta.status}">STATUS</span>
-            <p style="margin: 8px 0 0 0; color: #555;">
-                <strong>Pet:</strong> <span th:text="${consulta.nomePet}"></span> | 
-                <strong>Motivo:</strong> <span th:text="${consulta.observacoes}"></span>
-            </p>
-        </div>
+    <div class="acoes">
+        <a th:href="@{/vet/consultas/nova}" class="btn">Agendar nova consulta</a>
     </div>
-    
-    <br>
-    <a th:href="@{/vet/consultas/nova}" class="btn">Agendar Nova Consulta</a>
 </div>
 </body>
 </html>

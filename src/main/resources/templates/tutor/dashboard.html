@@ -3,49 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <title>Meus Pets - PetHub</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #fffaee; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-        .btn { padding: 8px 15px; background-color: #d4751e; color: white; text-decoration: none; border: none; border-radius: 4px; cursor: pointer; }
-        .btn:hover { background-color: #b36217; }
-        .btn-logout { background-color: #0c2476; }
-        .btn-logout:hover { background-color: #081a54; }
-        .pet-card { border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .pet-card a { color: #0c2476; text-decoration: none; font-weight: bold; }
-        .pet-card a:hover { text-decoration: underline; }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <div class="container">
     <div class="header">
         <h2>Bem-vindo(a), <span th:text="${nome}">Tutor</span>!</h2>
-        <div>
-            <a th:href="@{/tutor/perfil}" class="btn" style="background-color: #5bc0de; margin-right: 10px;">Meu Perfil</a>
+        <div class="acoes">
+            <a th:href="@{/tutor/lembretes}" class="btn btn--claro">
+                Lembretes
+                <span class="badge badge--azul" th:if="${pendentes > 0}" th:text="${pendentes}">0</span>
+            </a>
+            <a th:href="@{/tutor/perfil}" class="btn btn--azul">Meu perfil</a>
             <form th:action="@{/logout}" method="post" style="display:inline;">
-                <button type="submit" class="btn btn-logout">Sair</button>
+                <button type="submit" class="btn btn--azul">Sair</button>
             </form>
         </div>
     </div>
 
-    <h3>Meus Pets</h3>
-    
-    <div th:if="${#lists.isEmpty(pets)}">
-        <p>Você ainda não possui nenhum pet cadastrado.</p>
-    </div>
+    <h3>Meus pets</h3>
 
-    <div th:unless="${#lists.isEmpty(pets)}">
-        <div th:each="pet : ${pets}" class="pet-card">
-            <div>
-                <a th:href="@{/tutor/pets/{id}(id=${pet.id})}" th:text="${pet.nome}">Nome do Pet</a>
-                - <span th:text="${pet.especie}">Espécie</span>
-                <span th:if="${pet.raca != null}" th:text="'(' + ${pet.raca} + ')'"></span>
-            </div>
+    <p th:if="${#lists.isEmpty(pets)}" class="vazio">
+        Você ainda não possui nenhum pet cadastrado.
+    </p>
+
+    <div th:each="pet : ${pets}" class="card card--linha">
+        <div>
+            <a th:href="@{/tutor/pets/{id}(id=${pet.id})}" th:text="${pet.nome}">Nome do pet</a>
+            &ndash; <span th:text="${pet.especie}">Espécie</span>
+            <span th:if="${pet.raca != null}" th:text="'(' + ${pet.raca} + ')'"></span>
         </div>
     </div>
 
-    <br>
-    <a th:href="@{/tutor/pets/novo}" class="btn">Cadastrar Novo Pet</a>
+    <div class="acoes">
+        <a th:href="@{/tutor/pets/novo}" class="btn">Cadastrar novo pet</a>
+    </div>
 </div>
 </body>
 </html>

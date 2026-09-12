@@ -83,6 +83,7 @@ Três avisos que valem antes de começar:
 ## Cuidados
 
 - **Não faça commit nem push sem o usuário pedir.**
+- **Quando pedido o commit, deixe o usuario e email que já tem, não coloque o do cluade como autor do commit**
 - **Nunca coloque credencial em arquivo versionado.**
 - O banco é compartilhado com a API `Vitalis` (.NET). Mudança de schema aqui quebra lá.
 - Existe um segundo repositório com esta mesma aplicação, `challenge1sem2026-devops`, usado

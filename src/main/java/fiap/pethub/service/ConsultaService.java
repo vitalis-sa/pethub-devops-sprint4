@@ -8,6 +8,7 @@ import fiap.pethub.entity.Pet;
 import fiap.pethub.entity.Veterinario;
 import fiap.pethub.enums.StatusConsulta;
 import fiap.pethub.enums.TipoLembrete;
+import fiap.pethub.exception.RegraDeNegocioException;
 import fiap.pethub.exception.ResourceNotFoundException;
 import fiap.pethub.mapper.ConsultaMapper;
 import fiap.pethub.repository.ConsultaRepository;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -67,10 +69,38 @@ public class ConsultaService {
     @Transactional
     @CacheEvict(value = "consultas", allEntries = true)
     public ConsultaResponse create(ConsultaRequest request) {
+        exigirAgendaLivre(request);
+        exigirHorarioFuturoParaAgendamento(request);
         Consulta entity = buildConsultaEntity(request);
         Consulta saved = repository.save(entity);
         notificarResponsavel(saved);
         return mapper.toResponse(saved);
+    }
+
+    /**
+     * Um veterinario nao atende dois pets ao mesmo tempo. Sem esta checagem a
+     * agenda aceita sobreposicao e o conflito so aparece no dia da consulta.
+     */
+    private void exigirAgendaLivre(ConsultaRequest request) {
+        boolean ocupado = repository.existsByVeterinarioIdAndDataHoraAndStatusNot(
+                request.getVeterinarioId(), request.getDataHora(), StatusConsulta.CANCELADA);
+        if (ocupado) {
+            throw new RegraDeNegocioException(
+                    "Este veterinário já tem uma consulta marcada neste horário.");
+        }
+    }
+
+    /**
+     * Marcar para tras nao faz sentido; registrar o que ja aconteceu, faz. Por
+     * isso a regra vale so para o que esta sendo agendado, e nao para uma
+     * consulta lancada como realizada.
+     */
+    private void exigirHorarioFuturoParaAgendamento(ConsultaRequest request) {
+        boolean agendamento = request.getStatus() == StatusConsulta.AGENDADA;
+        if (agendamento && request.getDataHora().isBefore(LocalDateTime.now())) {
+            throw new RegraDeNegocioException(
+                    "Não é possível agendar uma consulta para uma data que já passou.");
+        }
     }
 
     @Transactional
@@ -81,6 +111,20 @@ public class ConsultaService {
         mapper.updateEntity(request, entity);
         applyUnidade(request.getUnidadeId(), entity);
         return mapper.toResponse(repository.save(entity));
+    }
+
+    /**
+     * Marca a consulta como realizada. Chamado ao fim do prontuario: sem isto a
+     * consulta seguiria aparecendo como agendada na agenda do veterinario mesmo
+     * depois de atendida.
+     */
+    @Transactional
+    @CacheEvict(value = "consultas", allEntries = true)
+    public ConsultaResponse concluir(Long id) {
+        Consulta entidade = findEntityById(id);
+        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        entidade.setStatus(StatusConsulta.REALIZADA);
+        return mapper.toResponse(repository.save(entidade));
     }
 
     @Transactional

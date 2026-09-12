@@ -11,12 +11,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
-@RestControllerAdvice
+/**
+ * Traduz exceção em resposta JSON — e só para a API.
+ *
+ * O filtro por {@code @RestController} é o que separa os dois mundos: sem ele,
+ * um erro numa tela Thymeleaf também viraria JSON, e o usuário veria o corpo de
+ * uma resposta de API no lugar da página. Os controllers web são {@code @Controller},
+ * ficam de fora daqui e caem na página de erro em {@code templates/error.html}.
+ */
+@RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -85,6 +94,12 @@ public class GlobalExceptionHandler {
         log.warn("Autenticação recusada: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Credenciais inválidas"));
+    }
+
+    @ExceptionHandler(RegraDeNegocioException.class)
+    public ResponseEntity<ErrorResponse> handleRegraDeNegocio(RegraDeNegocioException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

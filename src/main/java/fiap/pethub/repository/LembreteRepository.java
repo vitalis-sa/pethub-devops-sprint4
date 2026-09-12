@@ -13,4 +13,9 @@ public interface LembreteRepository extends JpaRepository<Lembrete, Long> {
     Page<Lembrete> findByResponsavelIdAndStatus(Long responsavelId, StatusLembrete status, Pageable pageable);
     Page<Lembrete> findByResponsavelIdAndTipo(Long responsavelId, TipoLembrete tipo, Pageable pageable);
     Page<Lembrete> findByStatus(StatusLembrete status, Pageable pageable);
+
+    /** Usados na remocao em cascata. */
+    void deleteByPetId(Long petId);
+
+    void deleteByResponsavelId(Long responsavelId);
 }

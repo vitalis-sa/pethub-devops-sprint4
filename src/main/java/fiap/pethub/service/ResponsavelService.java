@@ -39,6 +39,7 @@ public class ResponsavelService {
     private final ResponsavelEnderecoRepository enderecoRepository;
     private final ResponsavelMapper mapper;
     private final EscopoDoUsuario escopo;
+    private final RemocaoEmCascata remocao;
 
     // ─── Responsavel ──────────────────────────────────────────────────────────
 
@@ -100,13 +101,15 @@ public class ResponsavelService {
 
     @Transactional
     @CacheEvict(value = "responsaveis", allEntries = true)
+    /**
+     * Encerrar a conta leva junto os pets e o histórico deles. Endereços e
+     * contatos saem pelo cascade que a própria entidade declara.
+     */
     public DeleteResponse delete(Long id) {
         escopo.exigirSerOProprio(id);
-        repository.findById(id)
-                .ifPresentOrElse(
-                        repository::delete,
-                        () -> { throw new ResourceNotFoundException("Responsável não encontrado com id: " + id); }
-                );
+        Responsavel responsavel = findEntityById(id);
+        remocao.apagarDadosDoTutor(id);
+        repository.delete(responsavel);
         return DeleteResponse.of("Responsável", id);
     }
 

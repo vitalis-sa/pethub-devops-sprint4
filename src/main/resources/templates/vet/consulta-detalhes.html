@@ -2,70 +2,76 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Detalhes da Consulta - PetHub Vet</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #fffaee; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-        .btn-back { color: #d4751e; text-decoration: none; font-weight: bold; }
-        .btn-back:hover { text-decoration: underline; color: #b36217; }
-        .info-card { background: #f0f4f8; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #0c2476; }
-        .form-section { border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
-        .form-section h3 { margin-top: 0; color: #333; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], select, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn { padding: 10px 15px; background-color: #d4751e; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .btn:hover { background-color: #b36217; }
-        .error { color: #d9534f; font-size: 0.9em; margin-top: 5px; }
-    </style>
+    <title>Prontuário da Consulta - PetHub Vet</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
-<div class="container">
+<div class="container container--media">
     <div class="header">
-        <h2>Consulta: <span th:text="${#temporals.format(consulta.dataHora, 'dd/MM/yyyy')}"></span></h2>
-        <a th:href="@{/vet/dashboard}" class="btn-back">&laquo; Voltar</a>
+        <h2>Consulta de <span th:text="${#temporals.format(consulta.dataHora, 'dd/MM/yyyy HH:mm')}"></span></h2>
+        <a th:href="@{/vet/dashboard}" class="link-voltar">&laquo; Voltar</a>
     </div>
 
-    <div class="info-card">
-        <strong>Motivo da Consulta:</strong> <span th:text="${consulta.observacoes}"></span><br>
+    <div class="info-card info-card--azul">
+        <strong>Pet:</strong> <span th:text="${consulta.nomePet}"></span><br>
+        <strong>Motivo:</strong> <span th:text="${consulta.observacoes ?: '—'}"></span><br>
         <strong>Status:</strong> <span th:text="${consulta.status}"></span>
     </div>
 
-    <form th:action="@{/vet/consultas/{id}/prontuario(id=${consulta.id})}" th:object="${prontuarioForm}" method="post">
-        
+    <div th:if="${consulta.status.name() == 'REALIZADA'}" class="aviso aviso--sucesso">
+        O prontuário desta consulta já foi registrado.
+    </div>
+
+    <form th:if="${consulta.status.name() != 'REALIZADA'}"
+          th:action="@{/vet/consultas/{id}/prontuario(id=${consulta.id})}"
+          th:object="${prontuarioForm}" method="post">
+
+        <div class="aviso aviso--erro" th:if="${#fields.hasGlobalErrors()}">
+            <p th:each="erro : ${#fields.globalErrors()}" th:text="${erro}" style="margin:0;"></p>
+        </div>
+
         <div class="form-section">
-            <h3>1. Registrar Diagnóstico</h3>
+            <h3>1. Diagnóstico</h3>
             <div class="form-group">
-                <label for="sintoma1">Sintoma Principal *</label>
-                <input type="text" id="sintoma1" th:field="*{sintoma1}" required placeholder="Ex: Febre, Letargia"/>
+                <label for="sintoma1">Sintoma principal *</label>
+                <input type="text" id="sintoma1" th:field="*{sintoma1}" required maxlength="255"
+                       placeholder="Ex: Febre, letargia"/>
+                <div class="error" th:if="${#fields.hasErrors('sintoma1')}" th:errors="*{sintoma1}"></div>
             </div>
             <div class="form-group">
-                <label for="doencaPredita">Doença Predita (Opcional)</label>
-                <input type="text" id="doencaPredita" th:field="*{doencaPredita}" placeholder="Ex: Parvovirose"/>
+                <label for="doencaPredita">Doença suspeita</label>
+                <input type="text" id="doencaPredita" th:field="*{doencaPredita}" maxlength="255"
+                       placeholder="Ex: Parvovirose"/>
+                <div class="error" th:if="${#fields.hasErrors('doencaPredita')}" th:errors="*{doencaPredita}"></div>
             </div>
         </div>
 
         <div class="form-section">
-            <h3>2. Solicitar Exame / Pedido Médico (Opcional)</h3>
+            <h3>2. Pedido médico (opcional)</h3>
             <div class="form-group">
-                <label for="tipo">Tipo de Pedido</label>
+                <label for="tipo">Tipo</label>
                 <select id="tipo" th:field="*{tipo}">
-                    <option value="">-- Não solicitar exame --</option>
+                    <option value="">-- Não solicitar nada --</option>
                     <option th:each="t : ${tiposPedido}" th:value="${t}" th:text="${t}"></option>
                 </select>
+                <div class="error" th:if="${#fields.hasErrors('tipo')}" th:errors="*{tipo}"></div>
             </div>
             <div class="form-group">
-                <label for="descricao">Descrição / Nome do Exame</label>
-                <input type="text" id="descricao" th:field="*{descricao}" placeholder="Ex: Hemograma Completo"/>
+                <label for="descricao">Descrição</label>
+                <input type="text" id="descricao" th:field="*{descricao}" maxlength="255"
+                       placeholder="Ex: Hemograma completo"/>
+                <span class="ajuda">Tipo e descrição andam juntos: preencha os dois ou nenhum.</span>
+                <div class="error" th:if="${#fields.hasErrors('descricao')}" th:errors="*{descricao}"></div>
             </div>
             <div class="form-group">
-                <label for="instrucoes">Instruções Adicionais</label>
-                <textarea id="instrucoes" th:field="*{instrucoes}" rows="3" placeholder="Ex: Jejum de 8h"></textarea>
+                <label for="instrucoes">Instruções</label>
+                <textarea id="instrucoes" th:field="*{instrucoes}" rows="3" maxlength="255"
+                          placeholder="Ex: Jejum de 8h"></textarea>
+                <div class="error" th:if="${#fields.hasErrors('instrucoes')}" th:errors="*{instrucoes}"></div>
             </div>
         </div>
 
-        <button type="submit" class="btn" style="width: 100%; font-size: 1.1em; padding: 15px;">Salvar e sair da consulta</button>
+        <button type="submit" class="btn btn--largo">Registrar prontuário e concluir consulta</button>
     </form>
 </div>
 </body>

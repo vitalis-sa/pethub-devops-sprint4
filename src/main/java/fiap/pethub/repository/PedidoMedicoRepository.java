@@ -10,6 +10,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PedidoMedicoRepository extends JpaRepository<PedidoMedico, Long> {
     Page<PedidoMedico> findByPetId(Long petId, Pageable pageable);
 
+    /** Usado na remocao em cascata de um pet. */
+    void deleteByPetId(Long petId);
+
     /** Todos os registros dos pets de um responsavel. Base do filtro por posse. */
     Page<PedidoMedico> findByPetResponsavelId(Long responsavelId, Pageable pageable);
     Page<PedidoMedico> findByConsultaId(Long consultaId, Pageable pageable);
