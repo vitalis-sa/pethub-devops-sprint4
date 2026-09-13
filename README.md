@@ -2,6 +2,17 @@
 
 Uma solução completa para o cuidado veterinário, conectando pets, responsáveis e clínicas em uma jornada inteligente: do agendamento de consultas ao controle de vacinas, exames, diagnósticos e lembretes, tudo em um só lugar.
 
+Projeto entregue para a disciplina **Java Advanced** (FIAP, Challenge 2026 — 2º semestre,
+Sprint 3), cobrindo a API REST do domínio veterinário do PetHub: frontend com Thymeleaf,
+versionamento de schema com Flyway e autenticação/autorização com Spring Security.
+
+## Entrega
+
+| Artefato | Link |
+|---|---|
+| Repositório GitHub | https://github.com/vitalis-sa/pethub-java |
+| Vídeo de demonstração | https://www.youtube.com/watch?v=iKAm3RBc3nI |
+
 ## Grupo
 
 | Nome | RM |
@@ -16,7 +27,7 @@ Uma solução completa para o cuidado veterinário, conectando pets, responsáve
 
 | Tecnologia | Descrição |
 |---|---|
-| Java 21 | Linguagem principal do projeto, utilizando recursos modernos como records e inferência de tipos |
+| Java 21 | Linguagem principal do projeto, usando recursos modernos como `var`, text blocks e `switch` de expressão |
 | Spring Boot 4.0.6 | Framework base que auto-configura o servidor embutido (Tomcat), gerencia beans e simplifica a criação da API REST |
 | Maven | Gerenciador de dependências e build do projeto; responsável por baixar bibliotecas e compilar o código |
 | Spring Data JPA | Abstrai o acesso ao banco de dados, gerando automaticamente as queries SQL a partir de interfaces como JpaRepository |
@@ -113,8 +124,10 @@ O PetHub tem duas portas de entrada, com formas de autenticação diferentes:
 ### Pelo navegador — caminho mais curto
 
 1. Abra **`http://localhost:8080`**. Sem sessão, a aplicação leva você para a tela de login.
-2. Não existe usuário pré-cadastrado. Clique em **"Sou Tutor"** ou **"Sou Veterinário"**
-   e crie a sua conta.
+2. Em um banco limpo não existe usuário pré-cadastrado: clique em **"Sou Tutor"** ou
+   **"Sou Veterinário"** e crie a sua conta — ou carregue os
+   [dados de demonstração](#carregar-os-dados-de-demonstração-opcional) e entre com um dos
+   logins prontos.
 3. Depois de entrar, cada perfil cai no seu próprio painel:
 
 | Perfil | Painel | O que faz por ali |
@@ -128,6 +141,22 @@ e os lembretes que o sistema criou sozinho.
 
 > Tentar abrir `/vet/**` logado como tutor (ou o contrário) devolve a página de acesso
 > negado — é o controle de acesso por perfil em ação.
+
+### Carregar os dados de demonstração (opcional)
+
+Em vez de cadastrar contas na mão, é possível carregar um cenário pronto — o mesmo usado no
+[vídeo de demonstração](#entrega) desta entrega: uma clínica, um veterinário, dois tutores com
+pets distintos, uma consulta já realizada e outra agendada. Basta rodar `docs/seed_demo_video.sql`
+no schema da aplicação. Ele cria estes acessos, todos com a senha `123456`:
+
+| Login | Perfil | O que essa conta permite fazer |
+|---|---|---|
+| `vet_video@pethub.com` | `VETERINARIO` | Agendar consulta e registrar o prontuário |
+| `joao_video@demo.com` | `RESPONSAVEL` | Ver o prontuário e os lembretes do próprio pet |
+| `maria_video@demo.com` | `RESPONSAVEL` | Provar o isolamento entre tutores: este login não enxerga o pet do outro |
+
+Esse seed é material de demonstração e por isso **não** é uma migration do Flyway: dado de
+exemplo não deve viajar junto com o schema para todo ambiente que rodar o projeto.
 
 ### Pela API
 
@@ -195,9 +224,11 @@ curl http://localhost:8080/api/pets \
 
 | Status | Significado | O que fazer |
 |---|---|---|
+| `400` | Falha de validação nos dados enviados | A resposta lista o erro campo a campo |
 | `401` | Sem token, token expirado ou assinatura inválida | Refaça o login |
 | `403` | Token válido, mas o perfil não tem permissão para a operação | Use uma conta de veterinário |
 | `404` | Recurso inexistente **ou** de outro responsável | Confira o id; um responsável não enxerga dado alheio |
+| `409` | Regra de negócio recusou a operação | Leia a mensagem: agenda ocupada, prontuário já registrado ou e-mail em uso |
 
 ## Perfis e permissões
 
@@ -258,7 +289,7 @@ spring.datasource.hikari.maximum-pool-size=2
 No start, o log mostra o Flyway trabalhando — é assim que se confirma que as migrations rodaram:
 
 ```
-o.f.core.internal.command.DbValidate  : Successfully validated 2 migrations
+o.f.core.internal.command.DbValidate  : Successfully validated 1 migration
 o.f.core.internal.command.DbMigrate   : Current version of schema "RM566234": 1
 o.f.core.internal.command.DbMigrate   : Schema "RM566234" is up to date. No migration necessary.
 ```
@@ -269,70 +300,99 @@ mudou. Corrija sempre com uma versão nova.
 
 ## Fluxos completos (não-CRUD)
 
-Dois fluxos percorrem a aplicação de ponta a ponta pelo navegador, e outros dois rodam sozinhos
-em segundo plano. Nenhum deles é um CRUD: cada um coordena mais de uma escrita e tem regra de
-negócio própria.
+A rubrica pede **dois fluxos completos que não sejam CRUD**. Os dois primeiros abaixo são esses:
+cada um tem regra de negócio própria, recusa o que não faz sentido e envolve mais de uma
+entidade. Os demais rodam sozinhos, sem ninguém chamar um endpoint de lembrete.
 
-### A. Agendamento de consulta com verificação de agenda — `/vet/consultas/nova`
+### 1. Agendamento de consulta com validação de agenda
 
-O veterinário escolhe pet, data e tipo. Antes de gravar, o
-[`ConsultaService`](src/main/java/fiap/pethub/service/ConsultaService.java) recusa duas situações:
+Marcar uma consulta não é gravar uma linha. Em
+[`ConsultaService.create`](src/main/java/fiap/pethub/service/ConsultaService.java) o agendamento
+passa por duas guardas antes de existir, e só então gera o lembrete do tutor:
 
-- **horário ocupado** — o mesmo veterinário já tem consulta naquele instante (consulta cancelada
-  não ocupa agenda);
-- **data no passado** — só para o que está sendo *agendado*; lançar uma consulta que já aconteceu,
-  como `REALIZADA`, continua permitido.
+| Guarda | Regra | Se violar |
+|---|---|---|
+| Agenda livre | O mesmo veterinário não atende dois pets no mesmo horário. Consulta cancelada não ocupa agenda | `409` — "Este veterinário já tem uma consulta marcada neste horário." |
+| Horário futuro | Só vale para o que está sendo **agendado**; lançar uma consulta já `REALIZADA` no passado continua permitido, porque registrar o que aconteceu é legítimo | `409` — "Não é possível agendar uma consulta para uma data que já passou." |
 
-Gravada a consulta, o sistema cria sozinho o lembrete para o tutor. O conflito de agenda volta
-preso ao campo de data, no próprio formulário.
+Passadas as guardas, a consulta é salva **e** o lembrete do responsável é criado na mesma
+operação. Na web, o fluxo é a tela `/vet/consultas/nova`.
 
-### B. Registro de prontuário e conclusão da consulta — `/vet/consultas/{id}`
+### 2. Registro do prontuário e fechamento da consulta
 
-O [`ProntuarioService`](src/main/java/fiap/pethub/service/ProntuarioService.java) faz três
-escritas numa transação só: grava o diagnóstico, emite o pedido médico **se** o veterinário pediu
-um, e marca a consulta como `REALIZADA`. Um segundo envio na mesma consulta é recusado, então
-recarregar a página depois de salvar não duplica o diagnóstico.
+[`ProntuarioService.registrar`](src/main/java/fiap/pethub/service/ProntuarioService.java) fecha
+uma consulta em **três escritas que só fazem sentido juntas**, dentro de uma única transação:
 
-O resultado aparece na conta do tutor: diagnóstico e exame no prontuário do pet, e o lembrete do
-exame em `/tutor/lembretes`.
+1. grava o diagnóstico;
+2. emite o pedido médico, se o veterinário pediu exame ou medicamento — com prazo padrão de 7 dias;
+3. dá a consulta por `REALIZADA`.
 
----
+Ou as três entram, ou nenhuma entra. Antes disso há uma guarda de idempotência: se a consulta já
+está realizada ou já tem diagnóstico, a operação é recusada com `409`. Sem ela, um F5 depois de
+salvar empilharia um segundo diagnóstico na mesma consulta. Na web, é a tela
+`/vet/consultas/{id}`.
 
-Os dois fluxos abaixo não têm tela porque ninguém os dispara: acontecem sozinhos e o resultado
-chega ao tutor em **`/tutor/lembretes`**.
-
-### C. Vigilância diária de hidratação (agendada)
-
-O wearable de hidratação envia leituras ao longo do dia. Todo dia às **21h**, o
-[`LeituraWearableService`](src/main/java/fiap/pethub/service/LeituraWearableService.java) apura,
-por pet, quanto foi consumido contra a meta diária e cria um lembrete quando o consumo ficou baixo:
-
-| Consumo | Reação |
-|---|---|
-| ≥ 50% da meta | nenhum alerta |
-| entre 25% e 50% | lembrete de atenção, pedindo que o tutor incentive o pet a beber água |
-| < 25% da meta | lembrete **crítico**, sinalizando risco de desidratação grave |
-
-A apuração é paginada, para que a rotina não carregue todas as leituras do dia na memória.
-
-### D. Lembrete automático de próxima dose
+### 4. Lembrete automático de próxima dose
 
 Ao registrar uma vacina ou tratamento com o campo `proximaDose` preenchido, o sistema cria o
 lembrete daquela data, vinculado ao pet e ao responsável. Sem `proximaDose`, nada é criado — é o
 próprio dado clínico que decide.
 
-### E. Lembrete automático de consulta agendada
+### 5. Lembrete automático de consulta agendada
 
 Toda consulta criada gera um lembrete para o responsável do pet, na data e hora do agendamento.
 
-### F. Lembrete automático de pedido médico
+### 6. Lembrete automático de pedido médico
 
 Ao emitir um pedido médico, o tipo do lembrete acompanha o tipo do pedido — `EXAME` ou
 `MEDICAMENTO` — e a data limite vira a data agendada, com as instruções do veterinário no texto.
 
-Todos caem na mesma entidade `Lembrete`, com `referenciaTipo` e `referenciaId` apontando para a
-origem. O tutor os acompanha na tela **`/tutor/lembretes`**, onde marca cada um como visto; pela
-API, em `GET /api/lembretes` e `PATCH /api/lembretes/{id}/status`.
+Todos os lembretes caem na mesma entidade `Lembrete`, com `referenciaTipo` e `referenciaId`
+apontando para a origem. O tutor os acompanha em `/tutor/lembretes`, e a API os expõe em
+`GET /api/lembretes`, com baixa em `PATCH /api/lembretes/{id}/status`.
+
+## Mapa das páginas (frontend Thymeleaf)
+
+Todas as telas da camada de visualização, com o link direto para a aplicação rodando localmente.
+São 15 templates em `src/main/resources/templates`, e as capturas de cada uma estão em
+[Prints das telas](#prints-das-telas-frontend-thymeleaf).
+
+### Públicas
+
+| Página | Link local | Template | O que faz |
+|---|---|---|---|
+| Login | [`/login`](http://localhost:8080/login) | `login.html` | Formulário de entrada dos dois perfis |
+| Cadastro de tutor | [`/registrar/tutor`](http://localhost:8080/registrar/tutor) | `registrar-tutor.html` | Cria a conta `RESPONSAVEL` |
+| Cadastro de veterinário | [`/registrar/vet`](http://localhost:8080/registrar/vet) | `registrar-vet.html` | Cria a conta `VETERINARIO` |
+
+`/` não tem tela própria: redireciona para o painel do perfil logado, ou para `/login` sem sessão.
+
+### Tutor (`RESPONSAVEL`)
+
+| Página | Link local | Template | O que faz |
+|---|---|---|---|
+| Painel | [`/tutor/dashboard`](http://localhost:8080/tutor/dashboard) | `tutor/dashboard.html` | Lista os pets sob sua responsabilidade |
+| Novo pet | [`/tutor/pets/novo`](http://localhost:8080/tutor/pets/novo) | `tutor/novo-pet.html` | Cadastra um pet |
+| Prontuário do pet | `/tutor/pets/{id}` | `tutor/pet-detalhes.html` | Histórico: consultas, diagnósticos, exames e pedidos |
+| Editar pet | `/tutor/pets/{id}/editar` | `tutor/editar-pet.html` | Edita e exclui o pet |
+| Lembretes | [`/tutor/lembretes`](http://localhost:8080/tutor/lembretes) | `tutor/lembretes.html` | Lembretes gerados pelo sistema, com baixa |
+| Meu perfil | [`/tutor/perfil`](http://localhost:8080/tutor/perfil) | `tutor/perfil.html` | Atualiza e exclui a própria conta |
+
+### Veterinário (`VETERINARIO`)
+
+| Página | Link local | Template | O que faz |
+|---|---|---|---|
+| Painel | [`/vet/dashboard`](http://localhost:8080/vet/dashboard) | `vet/dashboard.html` | Agenda de consultas do veterinário |
+| Nova consulta | [`/vet/consultas/nova`](http://localhost:8080/vet/consultas/nova) | `vet/nova-consulta.html` | Agendamento com validação de agenda |
+| Consulta | `/vet/consultas/{id}` | `vet/consulta-detalhes.html` | Registra o prontuário e conclui a consulta |
+| Meu perfil | [`/vet/perfil`](http://localhost:8080/vet/perfil) | `vet/perfil.html` | Atualiza e exclui a própria conta |
+
+### Compartilhados
+
+| Template | Para que serve |
+|---|---|
+| `error.html` | Página de erro, incluindo o `403` de perfil errado |
+| `fragments/campos.html` | Fragmento reaproveitado pelos formulários, para não repetir marcação (DRY) |
 
 ## Endpoints
 
@@ -507,6 +567,7 @@ fiap.pethub
 │   ├── GlobalExceptionHandler.java  → Handler centralizado
 │   ├── AcessoNegadoException.java
 │   ├── EmailJaCadastradoException.java
+│   ├── RegraDeNegocioException.java → Recusa de regra de negócio (409)
 │   ├── ResourceNotFoundException.java
 │   ├── ErrorResponse.java
 │   ├── ValidationErrorResponse.java
@@ -524,23 +585,32 @@ fiap.pethub
 │
 ├── service/                     → Lógica de negócio
 │   ├── AuthService.java
+│   ├── ConsultaService.java     → Agendamento e suas guardas de agenda
+│   ├── ProntuarioService.java   → Fecha a consulta numa transação só
+│   ├── LeituraWearableService.java → Rotina diária de hidratação
+│   ├── RemocaoEmCascata.java    → Remoção coerente dos dependentes
 │   ├── PetService.java
-│   ├── ConsultaService.java
 │   └── ...
 │
 └── resources/
     ├── application.properties   → Configurações da aplicação
     ├── db/migration/            → Migrations do Flyway
     │   └── V1__schema_inicial.sql
+    ├── static/
+    │   └── css/app.css          → Folha de estilo das telas
     └── templates/               → Telas do Frontend (Thymeleaf)
         ├── login.html
         ├── registrar-tutor.html
         ├── registrar-vet.html
+        ├── error.html           → Página de erro, inclui o 403 de perfil errado
+        ├── fragments/
+        │   └── campos.html      → Fragmento reusado pelos formulários
         ├── tutor/
         │   ├── dashboard.html
         │   ├── novo-pet.html
         │   ├── editar-pet.html
         │   ├── pet-detalhes.html
+        │   ├── lembretes.html
         │   └── perfil.html
         └── vet/
             ├── dashboard.html
@@ -558,9 +628,9 @@ fiap.pethub
 | Flyway para versionamento do banco | ✅ | `V1__schema_inicial.sql` com 13 tabelas, 13 sequences e 20 FKs; `ddl-auto=validate` |
 | Spring Security — dois tipos de usuário | ✅ | Perfis `VETERINARIO` e `RESPONSAVEL`, autenticação JWT com senha em BCrypt |
 | Spring Security — rotas protegidas por perfil | ✅ | `SecurityConfig` por rota e método, mais posse por recurso em `EscopoDoUsuario` |
-| Dois fluxos completos além do CRUD | ✅ | Agendamento com verificação de agenda e registro de prontuário (`ProntuarioService`), ambos pela tela; mais dois automáticos: vigilância de hidratação (`@Scheduled`) e lembretes de próxima dose |
-| Validações nos formulários e nos dados | ✅ | Bean Validation nos DTOs e em todo formulário web, com erro exibido campo a campo; regras de negócio em `RegraDeNegocioException` |
-| Frontend com UI/UX | ✅ | Thymeleaf em `src/main/resources/templates`, folha de estilo única em `static/css/app.css`, página de erro própria e rotas separadas por perfil (`/tutor`, `/vet`) |
+| Dois fluxos completos além do CRUD | ✅ | [Agendamento com validação de agenda](#1-agendamento-de-consulta-com-validação-de-agenda) (`ConsultaService`) e [fechamento transacional do prontuário](#2-registro-do-prontuário-e-fechamento-da-consulta) (`ProntuarioService`), mais a rotina agendada de hidratação e três lembretes automáticos |
+| Validações nos dados de entrada | ✅ | Bean Validation nos DTOs (erro 400 por campo) e regras de negócio em serviço (erro 409) |
+| Frontend com UI/UX | ✅ | 15 templates Thymeleaf (14 telas mais um fragmento reusado), todos listados e com print em [Mapa das páginas](#mapa-das-páginas-frontend-thymeleaf) |
 
 ### Sprints anteriores
 
@@ -575,44 +645,145 @@ fiap.pethub
 | Utilização de DTOs | ✅ | 15+ DTOs request/response + MapStruct |
 | Documentação com Swagger | ✅ | OpenAPI 3.0 + Swagger UI |
 
-## Prints das Telas do Frontend (Thymeleaf)
-As telas abaixo comprovam a integração do backend em Spring Boot com o frontend utilizando o motor de templates Thymeleaf, incluindo o fluxo de cadastro, login (Spring Security) e a navegação (CRUD) protegida por sessão.
+## Prints das telas (frontend Thymeleaf)
 
-### 01 - Tela de Login (`/login`)
-*(Insira a imagem aqui)*
+Capturas da aplicação rodando em `http://localhost:8080`, com os dados de demonstração
+carregados. Elas comprovam a integração do Spring Boot com o Thymeleaf: cadastro, login por
+sessão (Spring Security), navegação protegida por perfil e os fluxos de negócio.
 
-### 02 - Registro de Tutor (`/registrar/tutor`)
-*(Insira a imagem aqui)*
+### Públicas
 
-### 03 - Registro de Veterinário (`/registrar/vet`)
-*(Insira a imagem aqui)*
+**01 — Login** (`/login`)
 
-### 04 - Dashboard do Tutor com Pets Cadastrados (`/tutor/dashboard`)
-*(Insira a imagem aqui)*
+![Tela de login](docs/img/01-login.png)
 
-### 05 - Formulário de Criação de Pet (`/tutor/pets/novo`)
-*(Insira a imagem aqui)*
+**02 — Cadastro de tutor** (`/registrar/tutor`)
 
-### 06 - Tela de Edição e Exclusão de Pet (`/tutor/pets/{id}/editar` e Detalhes)
-*(Insira a imagem aqui)*
+![Cadastro de tutor](docs/img/02-registrar-tutor.png)
 
-### 07 - Perfil do Tutor - Atualizar e Deletar (`/tutor/perfil`)
-*(Insira a imagem aqui)*
+**03 — Cadastro de veterinário** (`/registrar/vet`)
 
-### 08 - Dashboard do Veterinário com Consultas (`/vet/dashboard`)
-*(Insira a imagem aqui)*
+![Cadastro de veterinário](docs/img/03-registrar-vet.png)
 
-### 09 - Detalhes da Consulta e Prontuário (`/vet/consultas/{id}`)
-*(Insira a imagem aqui)*
+### Tutor
 
-### 10 - Perfil do Veterinário - Atualizar e Deletar (`/vet/perfil`)
-*(Insira a imagem aqui)*
+**04 — Painel do tutor** (`/tutor/dashboard`) — lista só os pets sob sua responsabilidade
+
+![Painel do tutor](docs/img/04-tutor-dashboard.png)
+
+**05 — Novo pet** (`/tutor/pets/novo`)
+
+![Formulário de novo pet](docs/img/05-tutor-novo-pet.png)
+
+**06 — Prontuário do pet** (`/tutor/pets/{id}`) — o tutor lê o que o veterinário registrou
+
+![Prontuário do pet](docs/img/06-tutor-pet-detalhes.png)
+
+**07 — Editar e excluir pet** (`/tutor/pets/{id}/editar`)
+
+![Edição de pet](docs/img/07-tutor-editar-pet.png)
+
+**08 — Lembretes** (`/tutor/lembretes`) — gerados pelo sistema, não cadastrados à mão
+
+![Lembretes do tutor](docs/img/08-tutor-lembretes.png)
+
+**09 — Perfil do tutor** (`/tutor/perfil`) — atualizar e excluir a própria conta
+
+![Perfil do tutor](docs/img/09-tutor-perfil.png)
+
+**10 — Controle de acesso por perfil** — tutor logado tentando abrir `/vet/dashboard`
+
+![Acesso negado 403](docs/img/10-acesso-negado.png)
+
+### Veterinário
+
+**11 — Painel do veterinário** (`/vet/dashboard`) — a agenda de consultas
+
+![Painel do veterinário](docs/img/11-vet-dashboard.png)
+
+**12 — Agendar consulta** (`/vet/consultas/nova`) — [fluxo 1](#1-agendamento-de-consulta-com-validação-de-agenda), com validação de agenda
+
+![Nova consulta](docs/img/12-vet-nova-consulta.png)
+
+**13 — Registrar prontuário** (`/vet/consultas/{id}`) — [fluxo 2](#2-registro-do-prontuário-e-fechamento-da-consulta): diagnóstico, pedido médico e conclusão numa transação só
+
+![Formulário de prontuário](docs/img/13-vet-prontuario-form.png)
+
+**14 — Consulta já concluída** — a mesma tela recusa um segundo prontuário
+
+![Consulta concluída](docs/img/14-vet-consulta-fechada.png)
+
+**15 — Perfil do veterinário** (`/vet/perfil`)
+
+![Perfil do veterinário](docs/img/15-vet-perfil.png)
+
+## Prints do Swagger UI (todos os endpoints)
+
+Documentação interativa em [`/swagger-ui.html`](http://localhost:8080/swagger-ui.html),
+gerada pelo Springdoc a partir das anotações `@Operation` e `@ApiResponses` dos controllers.
+
+**Visão geral — os 12 grupos e todos os endpoints numa página só**
+
+![Swagger UI completo](docs/img/16-swagger-visao-geral.png)
+
+Cada grupo em detalhe:
+
+**Autenticação** — login e os dois cadastros públicos
+
+![Swagger Autenticação](docs/img/17-07-swagger-autenticacao.png)
+
+**Pets**
+
+![Swagger Pets](docs/img/17-10-swagger-pets.png)
+
+**Consultas**
+
+![Swagger Consultas](docs/img/17-01-swagger-consultas.png)
+
+**Diagnósticos**
+
+![Swagger Diagnósticos](docs/img/17-09-swagger-diagnosticos.png)
+
+**Exames**
+
+![Swagger Exames](docs/img/17-11-swagger-exames.png)
+
+**Pedidos médicos**
+
+![Swagger Pedidos Médicos](docs/img/17-05-swagger-pedidos-medicos.png)
+
+**Vacinas e tratamentos**
+
+![Swagger Vacinas e Tratamentos](docs/img/17-12-swagger-vacinas-e-tratamentos.png)
+
+**Leituras wearable**
+
+![Swagger Leituras Wearable](docs/img/17-04-swagger-leituras-wearable.png)
+
+**Lembretes**
+
+![Swagger Lembretes](docs/img/17-02-swagger-lembretes.png)
+
+**Veterinários**
+
+![Swagger Veterinários](docs/img/17-03-swagger-veterinarios.png)
+
+**Unidades veterinárias**
+
+![Swagger Unidades Veterinárias](docs/img/17-08-swagger-unidades-veterinarias.png)
+
+**Responsáveis** — inclui contatos e endereços aninhados
+
+![Swagger Responsáveis](docs/img/17-06-swagger-responsaveis.png)
 
 
-## Prints das chamadas (Postman)
-Fluxo seguindo as regras de negócio da solução. As capturas são anteriores à introdução do Spring
-Security: para reproduzi-las hoje, autentique-se antes (ver [Acesso à aplicação](#acesso-à-aplicação))
-e envie o cabeçalho `Authorization: Bearer <token>` em todas as chamadas abaixo.
+## Prints das chamadas (Postman) — sprints anteriores
+
+Fluxo seguindo as regras de negócio da solução, na ordem em que as entidades dependem umas das
+outras. **As capturas são da Sprint 2, anteriores ao Spring Security**: para reproduzi-las hoje,
+autentique-se antes (ver [Acesso à aplicação](#acesso-à-aplicação)) e envie o cabeçalho
+`Authorization: Bearer <token>` em todas as chamadas. As coleções estão em `docs/`
+(`PetHub API.postman_collection.json` e `PetHub_Sprint3.postman_collection.json`).
 
 ### 01 - Criar unidade veterinaria - `POST /api/unidades`
 <img width="363" height="571" alt="image" src="https://github.com/user-attachments/assets/584b69f9-941f-45be-badf-9bffca58c44f" />
