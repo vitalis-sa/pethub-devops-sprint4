@@ -5,7 +5,7 @@ FROM maven:3.9-eclipse-temurin-21 AS builder
 
 WORKDIR /build
 
-COPY pom.xml .
+COPY pom.xml lombok.config ./
 RUN mvn -q -DskipTests dependency:go-offline
 
 COPY src ./src
