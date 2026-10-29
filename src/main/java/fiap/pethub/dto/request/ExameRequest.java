@@ -20,7 +20,6 @@ public class ExameRequest {
     private LocalDate data;
 
     private String resultado;
-    private String arquivoResultado;
 
     @NotNull(message = "consultaId é obrigatório")
     private Long consultaId;

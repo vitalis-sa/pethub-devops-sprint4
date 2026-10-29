@@ -17,6 +17,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import fiap.pethub.dto.request.ArquivoEnviadoRequest;
+import fiap.pethub.dto.request.EnvioDeArquivoRequest;
+import fiap.pethub.dto.response.UrlDeDownloadResponse;
+import fiap.pethub.dto.response.UrlDeEnvioResponse;
 import org.springframework.web.bind.annotation.*;
 
 @Validated
@@ -81,6 +85,14 @@ public class PetsController {
         return ResponseEntity.ok(service.update(id, request));
     }
 
+    @Operation(summary = "Remover todos os pets de um responsável",
+            description = "Chamado pelo serviço .NET ao excluir o responsável. Apaga também consultas, exames, pedidos, vacinas e a análise de cada pet.")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Removidos (ou não havia pets)")})
+    @DeleteMapping("/responsavel/{responsavelId}")
+    public ResponseEntity<DeleteResponse> deleteByResponsavel(@PathVariable Long responsavelId) {
+        return ResponseEntity.ok(service.deleteByResponsavel(responsavelId));
+    }
+
     @Operation(summary = "Remover pet")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Removido com sucesso"),
@@ -90,5 +102,26 @@ public class PetsController {
     public ResponseEntity<DeleteResponse> delete(@PathVariable Long id) {
         return ResponseEntity.ok(service.delete(id));
     }
-}
 
+    @Operation(summary = "Passo 1 da foto: URL assinada para enviar a imagem ao bucket",
+            description = "Aceita image/jpeg, image/png e image/webp. Envie o arquivo com PUT na URL devolvida e confirme com PUT /api/pets/{id}/foto.")
+    @PostMapping("/{id}/foto/envio")
+    public ResponseEntity<UrlDeEnvioResponse> prepararEnvioDaFoto(@PathVariable Long id,
+                                                                  @Valid @RequestBody EnvioDeArquivoRequest request) {
+        return ResponseEntity.ok(service.prepararEnvioDaFoto(id, request.contentType()));
+    }
+
+    @Operation(summary = "Passo 2 da foto: confirma o envio e vincula a foto ao pet")
+    @PutMapping("/{id}/foto")
+    public ResponseEntity<PetResponse> confirmarFoto(@PathVariable Long id,
+                                                     @Valid @RequestBody ArquivoEnviadoRequest request) {
+        return ResponseEntity.ok(service.confirmarFoto(id, request.caminho()));
+    }
+
+    @Operation(summary = "URL temporária para baixar a foto do pet")
+    @ApiResponses({@ApiResponse(responseCode = "404", description = "Pet sem foto")})
+    @GetMapping("/{id}/foto")
+    public ResponseEntity<UrlDeDownloadResponse> urlDaFoto(@PathVariable Long id) {
+        return ResponseEntity.ok(service.urlDaFoto(id));
+    }
+}

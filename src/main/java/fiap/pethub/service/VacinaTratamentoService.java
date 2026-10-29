@@ -9,6 +9,7 @@ import fiap.pethub.entity.Veterinario;
 import fiap.pethub.enums.TipoLembrete;
 import fiap.pethub.enums.TipoVacinaTratamento;
 import fiap.pethub.exception.ResourceNotFoundException;
+import fiap.pethub.messaging.LembreteSolicitado;
 import fiap.pethub.mapper.VacinaTratamentoMapper;
 import fiap.pethub.repository.ConsultaRepository;
 import fiap.pethub.repository.PetRepository;
@@ -18,6 +19,7 @@ import fiap.pethub.repository.VeterinarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -38,8 +40,9 @@ public class VacinaTratamentoService {
     private final ConsultaRepository consultaRepository;
     private final VacinaTratamentoMapper mapper;
     private final EscopoDoUsuario escopo;
-    private final LembreteService lembreteService;
+    private final ApplicationEventPublisher eventos;
 
+    @Cacheable(value = "vacinas", key = "'lista-' + #petId + '-' + #tipo + '-' + #pageable + '-' + @escopoDoUsuario.chaveDeCache()")
     public Page<VacinaTratamentoResponse> findAll(Long petId, TipoVacinaTratamento tipo, Pageable pageable) {
         if (petId != null) {
             exigirPosseDoPet(petId);
@@ -59,7 +62,7 @@ public class VacinaTratamentoService {
     @Cacheable(value = "vacinas", key = "#id + '-' + @escopoDoUsuario.chaveDeCache()")
     public VacinaTratamentoResponse findById(Long id) {
         VacinaTratamento entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         return mapper.toResponse(entidade);
     }
 
@@ -76,7 +79,7 @@ public class VacinaTratamentoService {
     @CacheEvict(value = "vacinas", allEntries = true)
     public VacinaTratamentoResponse update(Long id, VacinaTratamentoRequest request) {
         VacinaTratamento entity = findEntityById(id);
-        escopo.exigirPosse(entity.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entity.getPet().getResponsavelId());
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));
     }
@@ -85,8 +88,12 @@ public class VacinaTratamentoService {
     @CacheEvict(value = "vacinas", allEntries = true)
     public DeleteResponse delete(Long id) {
         VacinaTratamento entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         repository.delete(entidade);
+        if (entidade.getTipo() == TipoVacinaTratamento.MEDICAMENTO) {
+            Pet pet = entidade.getPet();
+            eventos.publishEvent(LembreteSolicitado.cancelamento(pet.getResponsavelId(), pet.getId(), entidade.getId()));
+        }
         return DeleteResponse.of("Vacina/Tratamento", id);
     }
 
@@ -109,15 +116,10 @@ public class VacinaTratamentoService {
         Optional.ofNullable(saved.getProximaDose())
                 .ifPresent(data -> {
                     Pet pet = saved.getPet();
-                    lembreteService.criarLembrete(
-                            pet.getResponsavel().getId(),
-                            pet.getId(),
-                            TipoLembrete.VACINA,
-                            data,
+                    eventos.publishEvent(new LembreteSolicitado(
+                            pet.getResponsavelId(), pet.getId(), TipoLembrete.VACINA, data,
                             "Próxima dose de " + saved.getNome() + " para " + pet.getNome(),
-                            saved.getId(),
-                            "VacinaTratamento"
-                    );
+                            saved.getId(), "VacinaTratamento"));
                 });
     }
 
@@ -140,7 +142,7 @@ public class VacinaTratamentoService {
 
     /** Filtrar por um pet alheio nao pode revelar sequer que ele existe. */
     private void exigirPosseDoPet(Long petId) {
-        escopo.exigirPosse(findPet(petId).getResponsavel().getId());
+        escopo.exigirPosse(findPet(petId).getResponsavelId());
     }
 
     private VacinaTratamento findEntityById(Long id) {

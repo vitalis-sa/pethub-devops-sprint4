@@ -9,6 +9,7 @@ import fiap.pethub.mapper.UnidadeVeterinarioMapper;
 import fiap.pethub.repository.UnidadeVeterinarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +23,7 @@ public class UnidadeVeterinarioService {
     private final UnidadeVeterinarioRepository repository;
     private final UnidadeVeterinarioMapper mapper;
 
+    @Cacheable(value = "unidades", key = "'lista-' + #nome + '-' + #cidade + '-' + #pageable")
     public Page<UnidadeVeterinarioResponse> findAll(String nome, String cidade, Pageable pageable) {
         if (nome != null)   return repository.findByNomeContainingIgnoreCase(nome, pageable).map(mapper::toResponse);
         if (cidade != null) return repository.findByCidade(cidade, pageable).map(mapper::toResponse);
@@ -42,7 +44,10 @@ public class UnidadeVeterinarioService {
     }
 
     @Transactional
-    @CacheEvict(value = "unidades", key = "#id")
+    @Caching(evict = {
+            @CacheEvict(value = "unidades", allEntries = true),
+            @CacheEvict(value = "consultas", allEntries = true)
+    })
     public UnidadeVeterinarioResponse update(Long id, UnidadeVeterinarioRequest request) {
         UnidadeVeterinario entity = findEntityById(id);
         mapper.updateEntity(request, entity);
@@ -50,7 +55,10 @@ public class UnidadeVeterinarioService {
     }
 
     @Transactional
-    @CacheEvict(value = "unidades", key = "#id")
+    @Caching(evict = {
+            @CacheEvict(value = "unidades", allEntries = true),
+            @CacheEvict(value = "consultas", allEntries = true)
+    })
     public DeleteResponse delete(Long id) {
         repository.findById(id)
                 .ifPresentOrElse(repository::delete,

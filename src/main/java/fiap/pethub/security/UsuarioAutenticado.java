@@ -1,6 +1,5 @@
 package fiap.pethub.security;
 
-import fiap.pethub.entity.Responsavel;
 import fiap.pethub.entity.Veterinario;
 import fiap.pethub.enums.Perfil;
 import lombok.Getter;
@@ -43,10 +42,13 @@ public class UsuarioAutenticado implements UserDetails {
                 Perfil.VETERINARIO, veterinario.getAtivo());
     }
 
-    public static UsuarioAutenticado de(Responsavel responsavel) {
-        return new UsuarioAutenticado(responsavel.getId(), responsavel.getNome(),
-                responsavel.getEmail(), responsavel.getSenha(),
-                Perfil.RESPONSAVEL, responsavel.getAtivo());
+    /**
+     * Responsável em nome de quem o serviço .NET está chamando. O Java não conhece seus dados
+     * (nome, e-mail, senha): quem o autenticou foi o .NET, e a única coisa que importa aqui é o id.
+     */
+    public static UsuarioAutenticado deResponsavel(Long responsavelId) {
+        return new UsuarioAutenticado(responsavelId, null, "responsavel-" + responsavelId,
+                null, Perfil.RESPONSAVEL, true);
     }
 
     @Override
@@ -64,7 +66,7 @@ public class UsuarioAutenticado implements UserDetails {
         return email;
     }
 
-    /** Desligar um veterinário ou desativar um tutor tira o acesso imediatamente. */
+    /** Desligar um veterinário ou desativar um responsável tira o acesso imediatamente. */
     @Override
     public boolean isEnabled() {
         return ativo;

@@ -35,6 +35,7 @@ public class DiagnosticoService {
     private final DiagnosticoMapper mapper;
     private final EscopoDoUsuario escopo;
 
+    @Cacheable(value = "diagnosticos", key = "'lista-' + #petId + '-' + #consultaId + '-' + #pageable + '-' + @escopoDoUsuario.chaveDeCache()")
     public Page<DiagnosticoResponse> findAll(Long petId, Long consultaId, Pageable pageable) {
         if (petId != null) {
             exigirPosseDoPet(petId);
@@ -54,7 +55,7 @@ public class DiagnosticoService {
     @Cacheable(value = "diagnosticos", key = "#id + '-' + @escopoDoUsuario.chaveDeCache()")
     public DiagnosticoResponse findById(Long id) {
         Diagnostico entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         return mapper.toResponse(entidade);
     }
 
@@ -69,7 +70,7 @@ public class DiagnosticoService {
     @CacheEvict(value = "diagnosticos", allEntries = true)
     public DiagnosticoResponse update(Long id, DiagnosticoRequest request) {
         Diagnostico entity = findEntityById(id);
-        escopo.exigirPosse(entity.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entity.getPet().getResponsavelId());
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));
     }
@@ -78,7 +79,7 @@ public class DiagnosticoService {
     @CacheEvict(value = "diagnosticos", allEntries = true)
     public DeleteResponse delete(Long id) {
         Diagnostico entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         repository.delete(entidade);
         return DeleteResponse.of("Diagnóstico", id);
     }
@@ -122,7 +123,7 @@ public class DiagnosticoService {
 
     /** Filtrar por um pet alheio nao pode revelar sequer que ele existe. */
     private void exigirPosseDoPet(Long petId) {
-        escopo.exigirPosse(findPet(petId).getResponsavel().getId());
+        escopo.exigirPosse(findPet(petId).getResponsavelId());
     }
 
     private Diagnostico findEntityById(Long id) {

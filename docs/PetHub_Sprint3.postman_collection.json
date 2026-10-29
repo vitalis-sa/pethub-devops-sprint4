@@ -43,7 +43,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nome\": \"Tutor Sprint 3\",\n  \"cpf\": \"12345678901\",\n  \"email\": \"tutor@pethub.com\",\n  \"senha\": \"123456\",\n  \"ativo\": true\n}"
+              "raw": "{\n  \"nome\": \"Responsável Sprint 3\",\n  \"cpf\": \"12345678901\",\n  \"email\": \"responsavel@pethub.com\",\n  \"senha\": \"123456\",\n  \"ativo\": true\n}"
             },
             "url": {
               "raw": "http://localhost:8080/api/auth/registrar/responsavel",

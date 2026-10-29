@@ -1,7 +1,6 @@
 package fiap.pethub.controller;
 
 import fiap.pethub.dto.request.LoginRequest;
-import fiap.pethub.dto.request.ResponsavelRequest;
 import fiap.pethub.dto.request.VeterinarioRequest;
 import fiap.pethub.dto.response.LoginResponse;
 import fiap.pethub.service.AuthService;
@@ -24,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Tag(name = "Autenticação", description = "Login e cadastro de veterinários e responsáveis")
+@Tag(name = "Autenticação", description = "Login e cadastro de veterinários")
 public class AuthController {
 
     private final AuthService service;
@@ -39,20 +38,6 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(service.autenticar(request));
-    }
-
-    @SecurityRequirements
-    @Operation(summary = "Cadastrar responsável",
-            description = "Cria o tutor e já devolve o token, dispensando um login em seguida")
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Cadastrado"),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos"),
-            @ApiResponse(responseCode = "409", description = "Email ou CPF já cadastrado")
-    })
-    @PostMapping("/registrar/responsavel")
-    public ResponseEntity<LoginResponse> registrarResponsavel(
-            @Valid @RequestBody ResponsavelRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.registrarResponsavel(request));
     }
 
     @SecurityRequirements

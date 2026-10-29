@@ -5,7 +5,7 @@
 #
 # O Spring Boot não le arquivos .env sozinho — este script exporta cada
 # linha do .env como variavel de ambiente do processo antes de chamar o
-# Maven, exatamente como o docker-compose faz com "env_file:".
+# Maven.
 #
 # Swagger: http://localhost:8080/swagger-ui.html
 

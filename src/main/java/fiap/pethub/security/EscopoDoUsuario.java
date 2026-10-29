@@ -45,19 +45,6 @@ public class EscopoDoUsuario {
     }
 
     /**
-     * Mais estrito que {@link #exigirPosse}: nem o veterinário passa.
-     *
-     * Serve para o cadastro do responsável, que o veterinário precisa **ler**
-     * (para vincular um pet ao tutor) mas não deve **editar** — dados pessoais
-     * pertencem ao titular.
-     */
-    public void exigirSerOProprio(Long responsavelDono) {
-        if (ehVeterinario() || !idDoResponsavel().equals(responsavelDono)) {
-            throw new AcessoNegadoException("Recurso não encontrado");
-        }
-    }
-
-    /**
      * Compõe a chave de cache junto com o id do recurso.
      *
      * Sem isto, um recurso carregado por um responsável seria devolvido a outro

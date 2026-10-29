@@ -11,6 +11,7 @@ import fiap.pethub.repository.UnidadeVeterinarioRepository;
 import fiap.pethub.repository.VeterinarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +32,7 @@ public class VeterinarioService {
     private final UnidadeVeterinarioRepository unidadeRepository;
     private final VeterinarioMapper mapper;
 
+    @Cacheable(value = "veterinarios", key = "'lista-' + #nome + '-' + #ativo + '-' + #pageable")
     public Page<VeterinarioResponse> findAll(String nome, Boolean ativo, Pageable pageable) {
         return Stream.<Map.Entry<Boolean, Supplier<Page<Veterinario>>>>of(
                 Map.entry(nome != null,              () -> repository.findByNomeContainingIgnoreCase(nome, pageable)),
@@ -61,7 +63,11 @@ public class VeterinarioService {
     }
 
     @Transactional
-    @CacheEvict(value = "veterinarios", key = "#id")
+    @Caching(evict = {
+            @CacheEvict(value = "veterinarios", allEntries = true),
+            @CacheEvict(value = "consultas", allEntries = true),
+            @CacheEvict(value = "pets", allEntries = true)
+    })
     public VeterinarioResponse update(Long id, VeterinarioRequest request) {
         Veterinario entity = findEntityById(id);
         mapper.updateEntity(request, entity);
@@ -78,7 +84,11 @@ public class VeterinarioService {
      * o que UsuarioAutenticado consulta para permitir o login.
      */
     @Transactional
-    @CacheEvict(value = "veterinarios", key = "#id")
+    @Caching(evict = {
+            @CacheEvict(value = "veterinarios", allEntries = true),
+            @CacheEvict(value = "consultas", allEntries = true),
+            @CacheEvict(value = "pets", allEntries = true)
+    })
     public VeterinarioResponse desativar(Long id) {
         Veterinario entity = findEntityById(id);
         entity.setAtivo(false);
@@ -86,7 +96,11 @@ public class VeterinarioService {
     }
 
     @Transactional
-    @CacheEvict(value = "veterinarios", key = "#id")
+    @Caching(evict = {
+            @CacheEvict(value = "veterinarios", allEntries = true),
+            @CacheEvict(value = "consultas", allEntries = true),
+            @CacheEvict(value = "pets", allEntries = true)
+    })
     public DeleteResponse delete(Long id) {
         repository.findById(id)
                 .ifPresentOrElse(

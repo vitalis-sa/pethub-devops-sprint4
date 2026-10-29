@@ -16,11 +16,14 @@ public interface ConsultaMapper {
     @Mapping(target = "pet", ignore = true)
     @Mapping(target = "veterinario", ignore = true)
     @Mapping(target = "unidade", ignore = true)
+    @Mapping(target = "queixas", ignore = true)
+    @Mapping(target = "tipo", ignore = true)
     Consulta toEntity(ConsultaRequest request);
 
     @Mapping(source = "pet.nome", target = "nomePet")
     @Mapping(source = "pet.id", target = "petId")
     @Mapping(source = "veterinario.nome", target = "nomeVeterinario")
+    @Mapping(source = "veterinario.id", target = "veterinarioId")
     @Mapping(source = "unidade.nome", target = "nomeUnidade")
     ConsultaResponse toResponse(Consulta consulta);
 
@@ -30,6 +33,8 @@ public interface ConsultaMapper {
     @Mapping(target = "pet", ignore = true)
     @Mapping(target = "veterinario", ignore = true)
     @Mapping(target = "unidade", ignore = true)
+    @Mapping(target = "queixas", ignore = true)
+    @Mapping(target = "tipo", ignore = true)
     void updateEntity(ConsultaRequest request, @MappingTarget Consulta consulta);
 }
 

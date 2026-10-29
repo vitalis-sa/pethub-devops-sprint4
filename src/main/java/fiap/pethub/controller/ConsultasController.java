@@ -1,6 +1,8 @@
 package fiap.pethub.controller;
 
 import fiap.pethub.dto.request.ConsultaRequest;
+import fiap.pethub.dto.request.QueixasRequest;
+import fiap.pethub.dto.request.RemarcarConsultaRequest;
 import fiap.pethub.dto.response.ConsultaResponse;
 import fiap.pethub.dto.response.DeleteResponse;
 import fiap.pethub.enums.StatusConsulta;
@@ -80,5 +82,23 @@ public class ConsultasController {
     public ResponseEntity<DeleteResponse> delete(@PathVariable Long id) {
         return ResponseEntity.ok(service.delete(id));
     }
-}
 
+    @Operation(summary = "Remarcar uma consulta agendada",
+            description = "Veterinário ou responsável dono do pet. O lembrete no serviço .NET é atualizado.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Consulta remarcada"),
+        @ApiResponse(responseCode = "409", description = "Horário no passado, agenda ocupada ou consulta não agendada")
+    })
+    @PatchMapping("/{id}/remarcar")
+    public ResponseEntity<ConsultaResponse> remarcar(@PathVariable Long id,
+                                                     @Valid @RequestBody RemarcarConsultaRequest request) {
+        return ResponseEntity.ok(service.remarcar(id, request.dataHora()));
+    }
+
+    @Operation(summary = "Registrar as queixas do responsável antes da consulta")
+    @PutMapping("/{id}/queixas")
+    public ResponseEntity<ConsultaResponse> registrarQueixas(@PathVariable Long id,
+                                                             @Valid @RequestBody QueixasRequest request) {
+        return ResponseEntity.ok(service.registrarQueixas(id, request.queixas()));
+    }
+}

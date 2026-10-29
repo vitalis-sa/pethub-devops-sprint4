@@ -24,12 +24,18 @@ public class Consulta {
     @Column(name = "data_hora", nullable = false)
     private LocalDateTime dataHora;
 
+    /** Sempre presencial (não há teleconsulta); nenhum cliente informa este campo. */
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo", nullable = false)
-    private TipoConsulta tipo;
+    private TipoConsulta tipo = TipoConsulta.PRESENCIAL;
 
     @Column(name = "observacoes")
     private String observacoes;
+
+    /** O que o responsável observou antes da consulta; o veterinário lê ao atender. */
+    @Column(name = "queixas", length = 2000)
+    private String queixas;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

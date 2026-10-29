@@ -243,7 +243,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tipo\": \"Hemograma\",\n  \"data\": \"2026-05-23\",\n  \"resultado\": \"Dentro da normalidade\",\n  \"arquivoResultado\": \"laudo-hemo.pdf\",\n  \"consultaId\": 1,\n  \"petId\": 1\n}"
+              "raw": "{\n  \"tipo\": \"Hemograma\",\n  \"data\": \"2026-05-23\",\n  \"resultado\": \"Dentro da normalidade\",\n  \"consultaId\": 1,\n  \"petId\": 1\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/exames",
@@ -313,34 +313,7 @@
           "response": []
         },
         {
-          "name": "12 - Criar leitura wearable",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"petId\": 1,\n  \"timestamp\": \"2026-05-23T11:00:00\",\n  \"consumoMlRegistrado\": 35.0,\n  \"metaDiariaML\": 240.0\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/leituras-wearable",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "leituras-wearable"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "13 - Criar lembrete",
+          "name": "12 - Criar lembrete",
           "request": {
             "method": "POST",
             "header": [
@@ -367,7 +340,7 @@
           "response": []
         },
         {
-          "name": "14 - Atualizar status do lembrete",
+          "name": "13 - Atualizar status do lembrete",
           "request": {
             "method": "PATCH",
             "header": [],
@@ -1434,7 +1407,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tipo\": \"Ultrassom\",\n  \"data\": \"2026-05-24\",\n  \"resultado\": \"Sem alteracoes\",\n  \"arquivoResultado\": \"laudo-ultra.pdf\",\n  \"consultaId\": 1,\n  \"petId\": 1\n}"
+              "raw": "{\n  \"tipo\": \"Ultrassom\",\n  \"data\": \"2026-05-24\",\n  \"resultado\": \"Sem alteracoes\",\n  \"consultaId\": 1,\n  \"petId\": 1\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/exames",
@@ -1461,7 +1434,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tipo\": \"Ultrassom\",\n  \"data\": \"2026-05-24\",\n  \"resultado\": \"Alteracao leve\",\n  \"arquivoResultado\": \"laudo-ultra-v2.pdf\",\n  \"consultaId\": 1,\n  \"petId\": 1\n}"
+              "raw": "{\n  \"tipo\": \"Ultrassom\",\n  \"data\": \"2026-05-24\",\n  \"resultado\": \"Alteracao leve\",\n  \"consultaId\": 1,\n  \"petId\": 1\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/exames/1",
@@ -1722,122 +1695,6 @@
               "path": [
                 "api",
                 "vacinas-tratamentos",
-                "1"
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Leituras Wearable",
-      "item": [
-        {
-          "name": "Listar",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/leituras-wearable",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "leituras-wearable"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Buscar por ID",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/leituras-wearable/1",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "leituras-wearable",
-                "1"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Criar",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"petId\": 1,\n  \"timestamp\": \"2026-05-24T08:00:00\",\n  \"consumoMlRegistrado\": 30.0,\n  \"metaDiariaML\": 240.0\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/leituras-wearable",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "leituras-wearable"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Atualizar",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"petId\": 1,\n  \"timestamp\": \"2026-05-24T09:00:00\",\n  \"consumoMlRegistrado\": 35.0,\n  \"metaDiariaML\": 240.0\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/leituras-wearable/1",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "leituras-wearable",
-                "1"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Excluir",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/leituras-wearable/1",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "leituras-wearable",
                 "1"
               ]
             }

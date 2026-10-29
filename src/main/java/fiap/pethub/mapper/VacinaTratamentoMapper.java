@@ -18,6 +18,7 @@ public interface VacinaTratamentoMapper {
     @Mapping(target = "consulta", ignore = true)
     VacinaTratamento toEntity(VacinaTratamentoRequest request);
 
+    @Mapping(source = "consulta.id", target = "consultaId")
     @Mapping(source = "pet.nome", target = "nomePet")
     @Mapping(source = "veterinario.nome", target = "nomeVeterinario")
     VacinaTratamentoResponse toResponse(VacinaTratamento vacinaTratamento);

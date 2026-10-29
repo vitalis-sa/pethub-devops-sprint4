@@ -3,8 +3,7 @@
 Uma solução completa para o cuidado veterinário, conectando pets, responsáveis e clínicas em uma jornada inteligente: do agendamento de consultas ao controle de vacinas, exames, diagnósticos e lembretes, tudo em um só lugar.
 
 Projeto entregue para a disciplina **Java Advanced** (FIAP, Challenge 2026 — 2º semestre,
-Sprint 3), cobrindo a API REST do domínio veterinário do PetHub: frontend com Thymeleaf,
-versionamento de schema com Flyway e autenticação/autorização com Spring Security.
+Sprint 3), cobrindo a API REST do domínio veterinário do PetHub: versionamento de schema com Flyway e autenticação/autorização com Spring Security.
 
 ## Entrega
 
@@ -32,7 +31,6 @@ versionamento de schema com Flyway e autenticação/autorização com Spring Sec
 | Maven | Gerenciador de dependências e build do projeto; responsável por baixar bibliotecas e compilar o código |
 | Spring Data JPA | Abstrai o acesso ao banco de dados, gerando automaticamente as queries SQL a partir de interfaces como JpaRepository |
 | Oracle Database (FIAP) | Banco de dados relacional utilizado para persistir os registros de pets, consultas, exames e outros dados da clínica |
-| Thymeleaf | Motor de templates para renderização do Frontend, criando as telas de login e dashboards para Tutor e Vet |
 | Flyway | Controle de versão do schema: aplica as migrations de `db/migration` no boot e registra o que já rodou na tabela `flyway_schema_history` |
 | Spring Security | Autenticação e autorização da API: filtro JWT stateless, regras de acesso por rota e perfil, e BCrypt para o hash das senhas |
 | JJWT (jjwt-api/impl/jackson) | Emissão e verificação dos tokens JWT assinados em HS256 |
@@ -41,7 +39,12 @@ versionamento de schema com Flyway e autenticação/autorização com Spring Sec
 | MapStruct | Gera o código de conversão entre entidades e DTOs (entrada/saída) sem precisar escrever mapeamentos manualmente |
 | Spring Validation | Valida os dados recebidos nas requisições com anotações como @NotBlank, @NotNull e @Size, retornando erros 400 automaticamente quando inválidos |
 | Springdoc OpenAPI | Gera documentação automaticamente e fornece interface Swagger UI para testar os endpoints |
-| Spring Scheduling | Agenda a rotina diária que apura o consumo de água de cada pet e dispara alerta de desidratação |
+| Spring Scheduling | Rotina diária que reenvia os e-mails de confirmação que falharam (`@Scheduled`) |
+| Spring AMQP + RabbitMQ (CloudAMQP) | O Java **produz** a mensagem do lembrete; o serviço .NET consome. A fila é durável e a mensagem só sai depois do commit |
+| Brevo (API HTTP) | E-mail de confirmação da consulta, enviado direto no fluxo normal, com status `ENVIADO`/`FALHOU` |
+| Google Cloud Storage | Exames (PDF) em `exames/` e fotos de pets em `fotos/` no bucket `vitalis-docs`: o Java só assina URLs temporárias, o app envia/baixa direto |
+| Groq (API REST, compatível com a da OpenAI) | Anamnese, receita e sugestão a partir da transcrição da consulta; resumo do texto de exames |
+| RestClient | Cliente HTTP do Spring usado para Groq, Brevo e para o serviço .NET de responsáveis |
 
 ## Instalação
 
@@ -65,6 +68,12 @@ Preencha o `.env` recém-criado:
 | `DB_PASSWORD` | sim | Senha do Oracle |
 | `JWT_SECRET` | sim | Segredo que assina os tokens. **Mínimo de 32 caracteres**, senão o HS256 recusa a chave e a aplicação não sobe. Gere um com `openssl rand -base64 32` |
 | `DB_URL` | não | Só para apontar para outro banco. Sem ela, usa `jdbc:oracle:thin:@oracle.fiap.com.br:1521/orcl` |
+| `SERVICE_JWT_SECRET` | sim, para a comunicação com o .NET | Segredo (mín. 32 caracteres) que assina o JWT de serviço (`X-Service-Authorization`), igual ao `ServicoAuth__Segredo` do .NET. Gere com `openssl rand -base64 48`. Vazio = nenhuma chamada de serviço é aceita nem emitida |
+| `RESPONSAVEIS_URL` | sim, para criar pet e enviar e-mail | URL do serviço .NET de responsáveis |
+| `RABBIT_HOST`, `RABBIT_PORT`, `RABBIT_USER`, `RABBIT_PASSWORD`, `RABBIT_VHOST`, `RABBIT_SSL` | sim, para os lembretes | Dados da instância no CloudAMQP (porta 5671 com `RABBIT_SSL=true`). Sem RabbitMQ a consulta é gravada, mas o lembrete não sai |
+| `BREVO_API_KEY`, `BREVO_REMETENTE_EMAIL` | sim, para o e-mail | Chave da Brevo e remetente verificado na conta. Sem eles o envio falha e fica marcado para o reenvio diário |
+| `GROQ_API_KEY` (e `GROQ_MODEL`, opcional) | sim, para a IA | Chave do Groq e id do modelo (padrão `openai/gpt-oss-120b`). Sem a chave, as rotas de IA respondem `503`. |
+| `GCS_BUCKET`, `GCP_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS` | para exames e fotos | Bucket e credenciais do Cloud Storage (ver "Arquivos") |
 
 O `.env` **não é versionado** (está no `.gitignore`); o `.env.example` é a referência de quais
 variáveis existem. Nenhuma credencial fica no código-fonte.
@@ -90,15 +99,6 @@ Para empacotar e rodar o jar, ou subir em container:
 java -jar target/pethub-0.0.1-SNAPSHOT.jar
 ```
 
-Há também um `docker-compose.yml` que sobe a aplicação **e** um Oracle XE local, lendo o mesmo
-`.env`. Nesse caminho, preencha também `ORACLE_PWD` e aponte
-`DB_URL=jdbc:oracle:thin:@//oracle-db:1521/XEPDB1`, senão o container continuará falando com o
-Oracle da FIAP:
-
-```bash
-docker compose up --build
-```
-
 Ao subir, a aplicação:
 
 1. aplica as migrations do Flyway no schema (ver [Migrations](#migrations-flyway));
@@ -107,76 +107,49 @@ Ao subir, a aplicação:
 
 | Recurso | URL |
 |---|---|
-| **Aplicação web (frontend)** | **`http://localhost:8080`** |
 | API REST | `http://localhost:8080/api` |
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
 | OpenAPI JSON | `http://localhost:8080/api-docs` |
 
 ## Acesso à aplicação
 
-O PetHub tem duas portas de entrada, com formas de autenticação diferentes:
+O PetHub Java é uma API REST consumida pelo aplicativo móvel e pelo serviço .NET. Há **duas formas de entrar**:
 
-| | Como entra | Para quem |
+| Quem | Como entra | O que o Java enxerga |
 |---|---|---|
-| **Telas web** (`/`, `/tutor/**`, `/vet/**`) | Formulário de login, sessão por cookie | Pessoas, no navegador |
-| **API REST** (`/api/**`) | Token JWT no cabeçalho `Authorization` | Aplicativo móvel e integrações |
+| Veterinário | `POST /api/auth/login` devolve um JWT, enviado em `Authorization: Bearer` | o veterinário logado |
+| Responsável | Autentica no serviço **.NET**, que chama o Java com `X-Service-Authorization: Bearer <jwt>` (JWT HS256 de 60 s assinado pelo .NET; o `sub` é quem pede) | o responsável daquele id, com as mesmas regras de posse |
 
-### Pelo navegador — caminho mais curto
+O cadastro e o login de responsáveis, assim como os lembretes, **pertencem ao .NET**. O Java guarda
+apenas o `responsavelId` dentro do pet.
 
-1. Abra **`http://localhost:8080`**. Sem sessão, a aplicação leva você para a tela de login.
-2. Em um banco limpo não existe usuário pré-cadastrado: clique em **"Sou Tutor"** ou
-   **"Sou Veterinário"** e crie a sua conta — ou carregue os
-   [dados de demonstração](#carregar-os-dados-de-demonstração-opcional) e entre com um dos
-   logins prontos.
-3. Depois de entrar, cada perfil cai no seu próprio painel:
-
-| Perfil | Painel | O que faz por ali |
-|---|---|---|
-| Tutor (`RESPONSAVEL`) | `/tutor/dashboard` | Cadastra pets, lê o prontuário de cada um e acompanha os lembretes |
-| Veterinário | `/vet/dashboard` | Agenda consultas e registra o prontuário |
-
-Para ver o sistema inteiro funcionando, crie **as duas contas**: o veterinário agenda a
-consulta e preenche o prontuário; o tutor, na conta dele, vê o diagnóstico, o exame pedido
-e os lembretes que o sistema criou sozinho.
-
-> Tentar abrir `/vet/**` logado como tutor (ou o contrário) devolve a página de acesso
-> negado — é o controle de acesso por perfil em ação.
+Em um banco limpo não existe usuário pré-cadastrado: crie o veterinário pela API (veja
+[Pela API](#pela-api)) ou carregue os
+[dados de demonstração](#carregar-os-dados-de-demonstração-opcional).
 
 ### Carregar os dados de demonstração (opcional)
 
-Em vez de cadastrar contas na mão, é possível carregar um cenário pronto — o mesmo usado no
-[vídeo de demonstração](#entrega) desta entrega: uma clínica, um veterinário, dois tutores com
-pets distintos, uma consulta já realizada e outra agendada. Basta rodar `docs/seed_demo_video.sql`
-no schema da aplicação. Ele cria estes acessos, todos com a senha `123456`:
-
-| Login | Perfil | O que essa conta permite fazer |
-|---|---|---|
-| `vet_video@pethub.com` | `VETERINARIO` | Agendar consulta e registrar o prontuário |
-| `joao_video@demo.com` | `RESPONSAVEL` | Ver o prontuário e os lembretes do próprio pet |
-| `maria_video@demo.com` | `RESPONSAVEL` | Provar o isolamento entre tutores: este login não enxerga o pet do outro |
+Em vez de cadastrar tudo na mão, é possível carregar um cenário pronto: uma clínica, um veterinário,
+dois pets de responsáveis distintos, uma consulta já realizada e outra agendada. Cadastre antes os
+dois responsáveis no .NET (ids 1 e 2) e rode `docs/seed_demo_video.sql` no schema da aplicação. A
+conta criada é `vet_video@pethub.com` (veterinário, senha `123456`).
 
 Esse seed é material de demonstração e por isso **não** é uma migration do Flyway: dado de
 exemplo não deve viajar junto com o schema para todo ambiente que rodar o projeto.
 
 ### Pela API
 
-**Toda rota `/api/**` fora de `/api/auth/**` exige um token JWT.** Sem o cabeçalho
-`Authorization`, a resposta é `401`.
+**Toda rota `/api/**` fora de `/api/auth/**` exige autenticação** (JWT do veterinário ou a credencial
+de serviço do .NET). Sem ela, a resposta é `401`.
 
 ### 1. Criar uma conta
 
-Não existe usuário pré-cadastrado — o primeiro acesso passa por um dos dois cadastros públicos:
+Não existe usuário pré-cadastrado — o primeiro acesso é o cadastro público do veterinário:
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/registrar/veterinario \
   -H "Content-Type: application/json" \
   -d '{"nome":"Dra. Ana","crmv":"SP-12345","email":"ana@pethub.com","senha":"senha123","especialidade":"Clínica geral","ativo":true}'
-```
-
-```bash
-curl -X POST http://localhost:8080/api/auth/registrar/responsavel \
-  -H "Content-Type: application/json" \
-  -d '{"nome":"João Silva","cpf":"12345678901","email":"joao@email.com","senha":"senha123","ativo":true}'
 ```
 
 O cadastro já devolve o token, dispensando um login em seguida. A senha é gravada com hash BCrypt
@@ -226,23 +199,24 @@ curl http://localhost:8080/api/pets \
 |---|---|---|
 | `400` | Falha de validação nos dados enviados | A resposta lista o erro campo a campo |
 | `401` | Sem token, token expirado ou assinatura inválida | Refaça o login |
-| `403` | Token válido, mas o perfil não tem permissão para a operação | Use uma conta de veterinário |
+| `403` | Autenticado, mas o perfil não tem permissão para a operação | Use uma conta de veterinário |
 | `404` | Recurso inexistente **ou** de outro responsável | Confira o id; um responsável não enxerga dado alheio |
 | `409` | Regra de negócio recusou a operação | Leia a mensagem: agenda ocupada, prontuário já registrado ou e-mail em uso |
+| `503` | IA, serviço de responsáveis ou outra dependência externa fora do ar ou não configurada | Confira as variáveis de ambiente e tente de novo |
 
 ## Perfis e permissões
 
 São dois tipos de usuário, e a diferença entre eles segue o domínio: **o veterinário produz o
-prontuário, o responsável o consulta.**
+prontuário, o responsável o consulta** — e também agenda consultas e cadastra os próprios pets.
 
 | | `VETERINARIO` | `RESPONSAVEL` |
 |---|---|---|
-| Cadastro | `POST /api/auth/registrar/veterinario` | `POST /api/auth/registrar/responsavel` |
+| Como entra | `POST /api/auth/registrar/veterinario` e login com JWT | pelo .NET, com JWT de serviço (`sub` = responsável) |
 | Prontuário (consultas, diagnósticos, exames, pedidos médicos, vacinas) | cria, edita e apaga | apenas lê |
-| Pets, veterinários e unidades | cria, edita e apaga | apenas lê |
-| Leituras do wearable | cria, edita e apaga | apenas lê |
-| Lembretes | leitura e escrita | leitura e escrita, só os próprios |
-| Dados pessoais do responsável (contatos, endereços) | apenas lê, para vincular um pet ao tutor | é o único que edita |
+| Agendar consulta (`POST /api/consultas`) | qualquer pet; pode lançar consulta já realizada | só para os próprios pets, e sempre como `AGENDADA` |
+| Cadastrar pet (`POST /api/pets`) | para o responsável do CPF informado | sempre para si mesmo |
+| Editar e apagar pets, veterinários e unidades | sim | não |
+| IA (análise da consulta, resumo de exame) | gera | apenas lê a análise |
 | Alcance das listagens | todos os registros da clínica | somente os pets sob sua responsabilidade |
 
 A proteção acontece em duas camadas, e as duas importam:
@@ -251,10 +225,10 @@ A proteção acontece em duas camadas, e as duas importam:
   quem não tem o perfil exigido recebe `403` antes de a requisição chegar ao controller. Manter as
   regras num arquivo só permite ler de cima a baixo quem pode fazer o quê.
 - **Por posse do recurso**, em [`EscopoDoUsuario`](src/main/java/fiap/pethub/security/EscopoDoUsuario.java):
-  um `RESPONSAVEL` autenticado que peça o pet de outro tutor recebe `404`, não `403` — a API não
+  um `RESPONSAVEL` autenticado que peça o pet de outro responsável recebe `404`, não `403` — a API não
   confirma nem nega a existência de um recurso alheio. As listagens são filtradas pelo responsável
   do token, e a chave de cache inclui o escopo do usuário, para que um acerto de cache nunca
-  devolva a um tutor o dado carregado por outro.
+  devolva a um responsável o dado carregado por outro.
 
 ## Migrations (Flyway)
 
@@ -263,7 +237,7 @@ O schema é versionado pelo Flyway, não gerado pelo Hibernate. As migrations fi
 
 | Arquivo | Conteúdo |
 |---|---|
-| `V1__schema_inicial.sql` | 13 sequences, 13 tabelas e 20 chaves estrangeiras — o schema completo do PetHub |
+| `V1__schema_inicial.sql` | 10 sequences, 10 tabelas e 16 chaves estrangeiras — o schema do Java (inclui `tb_analise_consulta.exames` e `.sugestao`, antes das migrations V2 e V3, já incorporadas aqui). As tabelas de responsável, endereço, contato e lembrete são do .NET e **não** estão aqui; `tb_pet.responsavel_id` é uma coluna simples, sem chave estrangeira |
 
 Configuração relevante em `application.properties`:
 
@@ -271,16 +245,18 @@ Configuração relevante em `application.properties`:
 spring.jpa.hibernate.ddl-auto=validate
 spring.flyway.enabled=true
 spring.flyway.baseline-on-migrate=true
-spring.flyway.baseline-version=1
+spring.flyway.baseline-version=0
 spring.datasource.hikari.maximum-pool-size=2
 ```
 
 - `ddl-auto=validate` — o Hibernate deixa de criar e alterar tabela; ele apenas **confere** se as
   entidades batem com o que o Flyway aplicou. Se divergirem, a aplicação não sobe, e é justamente
   esse o ponto: a divergência aparece no boot, não em produção.
-- `baseline-on-migrate` — o schema da FIAP já existia, criado pelo `ddl-auto=update` das sprints
-  anteriores. Sem isso, o Flyway encontraria tabelas fora do seu controle e recusaria trabalhar.
-  Com a baseline na versão 1, ele adota o schema atual como ponto de partida.
+- `baseline-on-migrate` com `baseline-version=0` — o schema Oracle é compartilhado com o .NET, que
+  mantém lá as tabelas de responsável, endereço, contato e lembrete. Sem isso, o Flyway veria um
+  schema "não vazio" sem histórico e recusaria rodar. Com a baseline na versão **0** ele adota essas
+  tabelas de fora e ainda aplica a V1 do Java. Não use `baseline-version=1`: o Flyway marcaria a V1
+  como já aplicada, pularia a migration e o Hibernate falharia com `missing table`.
 - `maximum-pool-size=2` — o pool da FIAP é limitado e o projeto o mantém no mínimo viável, mas
   **1 não basta**: no boot o Flyway segura uma conexão para aplicar a migration e pede outra para
   gravar o histórico. Com o pool em 1, ele espera os 30s do `connection-timeout` e a aplicação
@@ -294,7 +270,7 @@ o.f.core.internal.command.DbMigrate   : Current version of schema "RM566234": 1
 o.f.core.internal.command.DbMigrate   : Schema "RM566234" is up to date. No migration necessary.
 ```
 
-**Para criar uma nova migration**, adicione um arquivo `V2__descricao_curta.sql` na mesma pasta.
+**Para criar uma nova migration**, adicione um arquivo `V2__descricao_curta.sql` (hoje só existe a V1) na mesma pasta.
 Migration já aplicada nunca deve ser editada — o Flyway compara o checksum e falha se o conteúdo
 mudou. Corrija sempre com uma versão nova.
 
@@ -308,15 +284,22 @@ entidade. Os demais rodam sozinhos, sem ninguém chamar um endpoint de lembrete.
 
 Marcar uma consulta não é gravar uma linha. Em
 [`ConsultaService.create`](src/main/java/fiap/pethub/service/ConsultaService.java) o agendamento
-passa por duas guardas antes de existir, e só então gera o lembrete do tutor:
+confere a posse do pet (o responsável só agenda para os próprios), passa por duas guardas e só então avisa o responsável:
 
 | Guarda | Regra | Se violar |
 |---|---|---|
 | Agenda livre | O mesmo veterinário não atende dois pets no mesmo horário. Consulta cancelada não ocupa agenda | `409` — "Este veterinário já tem uma consulta marcada neste horário." |
 | Horário futuro | Só vale para o que está sendo **agendado**; lançar uma consulta já `REALIZADA` no passado continua permitido, porque registrar o que aconteceu é legítimo | `409` — "Não é possível agendar uma consulta para uma data que já passou." |
 
-Passadas as guardas, a consulta é salva **e** o lembrete do responsável é criado na mesma
-operação. Na web, o fluxo é a tela `/vet/consultas/nova`.
+Passadas as guardas, a consulta é salva. **Só depois do commit** saem os dois avisos, nesta ordem de
+responsabilidade:
+
+1. o **lembrete**, publicado na fila do RabbitMQ para o .NET criar (o Java não consome);
+2. o **e-mail de confirmação**, enviado direto pela Brevo, sem fila. Se falhar, a consulta continua
+   gravada, o e-mail fica marcado `FALHOU` em `tb_email_consulta` e o job das 6h tenta de novo as
+   falhas do dia anterior.
+
+Consulta lançada como `REALIZADA` ou `CANCELADA` não gera lembrete nem e-mail.
 
 ### 2. Registro do prontuário e fechamento da consulta
 
@@ -329,70 +312,20 @@ uma consulta em **três escritas que só fazem sentido juntas**, dentro de uma �
 
 Ou as três entram, ou nenhuma entra. Antes disso há uma guarda de idempotência: se a consulta já
 está realizada ou já tem diagnóstico, a operação é recusada com `409`. Sem ela, um F5 depois de
-salvar empilharia um segundo diagnóstico na mesma consulta. Na web, é a tela
-`/vet/consultas/{id}`.
+salvar empilharia um segundo diagnóstico na mesma consulta.
 
-### 4. Lembrete automático de próxima dose
+### 3. Lembretes automáticos (pelo .NET)
 
-Ao registrar uma vacina ou tratamento com o campo `proximaDose` preenchido, o sistema cria o
-lembrete daquela data, vinculado ao pet e ao responsável. Sem `proximaDose`, nada é criado — é o
-próprio dado clínico que decide.
+O Java só **produz** a mensagem; quem cria o lembrete é o .NET, ao consumir a fila. Três situações
+publicam, sempre depois de gravar:
 
-### 5. Lembrete automático de consulta agendada
+| Origem | Tipo do lembrete | Data |
+|---|---|---|
+| Consulta agendada | `CONSULTA` | dia da consulta |
+| Vacina ou tratamento com `proximaDose` | `VACINA` | `proximaDose` |
+| Pedido médico com `dataLimite` | `EXAME` ou `MEDICAMENTO`, conforme o pedido | `dataLimite` |
 
-Toda consulta criada gera um lembrete para o responsável do pet, na data e hora do agendamento.
-
-### 6. Lembrete automático de pedido médico
-
-Ao emitir um pedido médico, o tipo do lembrete acompanha o tipo do pedido — `EXAME` ou
-`MEDICAMENTO` — e a data limite vira a data agendada, com as instruções do veterinário no texto.
-
-Todos os lembretes caem na mesma entidade `Lembrete`, com `referenciaTipo` e `referenciaId`
-apontando para a origem. O tutor os acompanha em `/tutor/lembretes`, e a API os expõe em
-`GET /api/lembretes`, com baixa em `PATCH /api/lembretes/{id}/status`.
-
-## Mapa das páginas (frontend Thymeleaf)
-
-Todas as telas da camada de visualização, com o link direto para a aplicação rodando localmente.
-São 15 templates em `src/main/resources/templates`, e as capturas de cada uma estão em
-[Prints das telas](#prints-das-telas-frontend-thymeleaf).
-
-### Públicas
-
-| Página | Link local | Template | O que faz |
-|---|---|---|---|
-| Login | [`/login`](http://localhost:8080/login) | `login.html` | Formulário de entrada dos dois perfis |
-| Cadastro de tutor | [`/registrar/tutor`](http://localhost:8080/registrar/tutor) | `registrar-tutor.html` | Cria a conta `RESPONSAVEL` |
-| Cadastro de veterinário | [`/registrar/vet`](http://localhost:8080/registrar/vet) | `registrar-vet.html` | Cria a conta `VETERINARIO` |
-
-`/` não tem tela própria: redireciona para o painel do perfil logado, ou para `/login` sem sessão.
-
-### Tutor (`RESPONSAVEL`)
-
-| Página | Link local | Template | O que faz |
-|---|---|---|---|
-| Painel | [`/tutor/dashboard`](http://localhost:8080/tutor/dashboard) | `tutor/dashboard.html` | Lista os pets sob sua responsabilidade |
-| Novo pet | [`/tutor/pets/novo`](http://localhost:8080/tutor/pets/novo) | `tutor/novo-pet.html` | Cadastra um pet |
-| Prontuário do pet | `/tutor/pets/{id}` | `tutor/pet-detalhes.html` | Histórico: consultas, diagnósticos, exames e pedidos |
-| Editar pet | `/tutor/pets/{id}/editar` | `tutor/editar-pet.html` | Edita e exclui o pet |
-| Lembretes | [`/tutor/lembretes`](http://localhost:8080/tutor/lembretes) | `tutor/lembretes.html` | Lembretes gerados pelo sistema, com baixa |
-| Meu perfil | [`/tutor/perfil`](http://localhost:8080/tutor/perfil) | `tutor/perfil.html` | Atualiza e exclui a própria conta |
-
-### Veterinário (`VETERINARIO`)
-
-| Página | Link local | Template | O que faz |
-|---|---|---|---|
-| Painel | [`/vet/dashboard`](http://localhost:8080/vet/dashboard) | `vet/dashboard.html` | Agenda de consultas do veterinário |
-| Nova consulta | [`/vet/consultas/nova`](http://localhost:8080/vet/consultas/nova) | `vet/nova-consulta.html` | Agendamento com validação de agenda |
-| Consulta | `/vet/consultas/{id}` | `vet/consulta-detalhes.html` | Registra o prontuário e conclui a consulta |
-| Meu perfil | [`/vet/perfil`](http://localhost:8080/vet/perfil) | `vet/perfil.html` | Atualiza e exclui a própria conta |
-
-### Compartilhados
-
-| Template | Para que serve |
-|---|---|
-| `error.html` | Página de erro, incluindo o `403` de perfil errado |
-| `fragments/campos.html` | Fragmento reaproveitado pelos formulários, para não repetir marcação (DRY) |
+Detalhes do contrato em [Integração com o serviço .NET](#integração-com-o-serviço-net).
 
 ## Endpoints
 
@@ -403,8 +336,7 @@ o perfil `VETERINARIO`.
 
 | Método | Rota | Descrição | Acesso |
 |---|---|---|---|
-| POST | /api/auth/login | Autenticar e receber o token JWT | público |
-| POST | /api/auth/registrar/responsavel | Cadastrar responsável e já receber o token | público |
+| POST | /api/auth/login | Autenticar veterinário e receber o token JWT | público |
 | POST | /api/auth/registrar/veterinario | Cadastrar veterinário e já receber o token | público |
 
 ### Pets e prontuário
@@ -414,12 +346,13 @@ o perfil `VETERINARIO`.
 | GET | /api/pets | Listar todos os pets (paginado) | ambos |
 | GET | /api/pets/{id} | Buscar pet por ID | ambos |
 | GET | /api/pets/responsavel?cpf= | Buscar pets por CPF do responsável | ambos |
-| POST | /api/pets | Criar novo pet | VET |
+| POST | /api/pets | Criar novo pet (responsável cadastra para si) | ambos |
 | PUT | /api/pets/{id} | Atualizar pet por ID | VET |
 | DELETE | /api/pets/{id} | Deletar pet por ID | VET |
+| DELETE | /api/pets/responsavel/{responsavelId} | Apaga todos os pets do responsável com o histórico (o .NET chama antes de excluir o responsável) | ambos |
 | GET | /api/consultas | Listar todas as consultas (paginado) | ambos |
 | GET | /api/consultas/{id} | Buscar consulta por ID | ambos |
-| POST | /api/consultas | Criar nova consulta | VET |
+| POST | /api/consultas | Agendar consulta (responsável só para os próprios pets) | ambos |
 | PUT | /api/consultas/{id} | Atualizar consulta | VET |
 | DELETE | /api/consultas/{id} | Deletar consulta | VET |
 | GET | /api/exames | Listar todos os exames (paginado) | ambos |
@@ -427,6 +360,7 @@ o perfil `VETERINARIO`.
 | POST | /api/exames | Criar novo exame | VET |
 | PUT | /api/exames/{id} | Atualizar exame | VET |
 | DELETE | /api/exames/{id} | Deletar exame | VET |
+| POST | /api/exames/{id}/resumo-ia | Resumir o texto de um exame com IA e gravar em `resumoIa` | VET |
 | GET | /api/diagnosticos | Listar todos os diagnósticos (paginado) | ambos |
 | GET | /api/diagnosticos/{id} | Buscar diagnóstico por ID | ambos |
 | POST | /api/diagnosticos | Criar novo diagnóstico | VET |
@@ -443,23 +377,7 @@ o perfil `VETERINARIO`.
 | PUT | /api/pedidos-medicos/{id} | Atualizar pedido médico | VET |
 | DELETE | /api/pedidos-medicos/{id} | Deletar pedido médico | VET |
 
-### Wearable e lembretes
-
-| Método | Rota | Descrição | Acesso |
-|---|---|---|---|
-| GET | /api/leituras-wearable | Listar leituras wearable (paginado) | ambos |
-| GET | /api/leituras-wearable/{id} | Buscar leitura wearable por ID | ambos |
-| POST | /api/leituras-wearable | Criar nova leitura wearable | VET |
-| PUT | /api/leituras-wearable/{id} | Atualizar leitura wearable | VET |
-| DELETE | /api/leituras-wearable/{id} | Deletar leitura wearable | VET |
-| GET | /api/lembretes | Listar lembretes (paginado) | ambos |
-| GET | /api/lembretes/{id} | Buscar lembrete por ID | ambos |
-| POST | /api/lembretes | Criar novo lembrete | ambos |
-| PUT | /api/lembretes/{id} | Atualizar lembrete | ambos |
-| PATCH | /api/lembretes/{id}/status?status= | Atualizar status do lembrete | ambos |
-| DELETE | /api/lembretes/{id} | Deletar lembrete | ambos |
-
-### Clínica e responsáveis
+### Clínica
 
 | Método | Rota | Descrição | Acesso |
 |---|---|---|---|
@@ -473,22 +391,86 @@ o perfil `VETERINARIO`.
 | POST | /api/unidades | Criar nova unidade | VET |
 | PUT | /api/unidades/{id} | Atualizar unidade | VET |
 | DELETE | /api/unidades/{id} | Deletar unidade | VET |
-| GET | /api/responsaveis | Listar responsáveis (paginado) | ambos |
-| GET | /api/responsaveis/{id} | Buscar responsável por ID | ambos |
-| GET | /api/responsaveis/buscar?cpf= | Buscar responsável por CPF | ambos |
-| POST | /api/responsaveis | Criar novo responsável | ambos |
-| PUT | /api/responsaveis/{id} | Atualizar responsável | só o titular |
-| DELETE | /api/responsaveis/{id} | Deletar responsável | só o titular |
-| GET | /api/responsaveis/{id}/contatos | Listar contatos do responsável | ambos |
-| GET | /api/responsaveis/{id}/contatos/{contatoId} | Buscar contato por ID | ambos |
-| POST | /api/responsaveis/{id}/contatos | Adicionar contato | só o titular |
-| PUT | /api/responsaveis/{id}/contatos/{contatoId} | Atualizar contato | só o titular |
-| DELETE | /api/responsaveis/{id}/contatos/{contatoId} | Remover contato | só o titular |
-| GET | /api/responsaveis/{id}/enderecos | Listar endereços do responsável | ambos |
-| GET | /api/responsaveis/{id}/enderecos/{enderecoId} | Buscar endereço por ID | ambos |
-| POST | /api/responsaveis/{id}/enderecos | Adicionar endereço | só o titular |
-| PUT | /api/responsaveis/{id}/enderecos/{enderecoId} | Atualizar endereço | só o titular |
-| DELETE | /api/responsaveis/{id}/enderecos/{enderecoId} | Remover endereço | só o titular |
+
+## Inteligência Artificial (Groq)
+
+O aplicativo converte a voz em texto com o reconhecimento do próprio aparelho (no navegador, o do navegador) e **nenhum áudio chega à API**; o PDF do exame também vira texto no aplicativo. A análise em si recebe somente texto e chama o Groq pela API REST (`/openai/v1/chat/completions`, modo JSON).
+
+| Método | Rota | Descrição | Perfil |
+|--------|------|-----------|--------|
+| POST | /api/consultas/{id}/analise-ia | Gera o **rascunho** de anamnese, receita e sugestão a partir da transcrição (não grava nada) | VET |
+| PUT | /api/consultas/{id}/analise-ia | Salva a anamnese e a receita que o veterinário aceitou ou corrigiu (substitui a anterior) | VET |
+| GET | /api/consultas/{id}/analise-ia | Busca a anamnese e a receita salvas | VET |
+| GET | /api/consultas/{id}/receita | Receita aprovada; o PDF é montado no aplicativo | VET e responsável do pet |
+| POST | /api/exames/{id}/resumo-ia | Resume o texto do exame e grava em `resumoIa` | VET |
+| PATCH | /api/consultas/{id}/remarcar | Muda a data/hora de uma consulta agendada (futuro, agenda livre); o lembrete no .NET é atualizado | VET e responsável do pet |
+| PUT | /api/consultas/{id}/queixas | Registra as queixas do responsável antes da consulta | VET e responsável do pet |
+
+- Toda a análise é **exclusiva do veterinário**. O rascunho não é gravado; só o que ele aceitou ou corrigiu (`PUT`: anamnese, medicamentos, exames e a sugestão) vai para o banco, reflete em Tratamentos e Exames do pet e marca a consulta como **realizada** (depois disso ela não pode ser atendida de novo). A sugestão nunca é diagnóstico.
+- O responsável só enxerga a receita **depois** da aprovação, em `GET /api/consultas/{id}/receita`.
+- **Onde fica o prompt:** as instruções estão em `src/main/resources/prompts/*.txt` e são ligadas ao formato da resposta em [`PromptIa`](src/main/java/fiap/pethub/ia/PromptIa.java). O texto que veio do app vai à parte, dentro de uma tag (`<transcricao>`), como material a processar. O [`GroqClient`](src/main/java/fiap/pethub/ia/GroqClient.java) só envia e converte a resposta.
+- Variáveis: `GROQ_API_KEY` (obrigatória), `GROQ_MODEL`, `GROQ_URL_BASE`, `GROQ_MAX_TOKENS` e `GROQ_TIMEOUT_SEGUNDOS` (opcionais). Sem a chave, as rotas respondem 503.
+- A chave vai no cabeçalho `x-goog-api-key` e nunca é registrada em log. Falhas do serviço de IA viram 503 sem repassar o corpo do erro.
+- A chamada ao modelo não segura transação do banco (o pool tem apenas 2 conexões).
+- Consulta cancelada não aceita análise.
+- Receita em PDF: o aplicativo monta o PDF a partir do texto aprovado (`expo-print`). O veterinário imprime na hora; o responsável baixa depois. Não há biblioteca de PDF no Java.
+
+## Arquivos (Google Cloud Storage)
+
+Os bytes nunca passam pelo Java. O fluxo tem três passos, iguais para exames e fotos:
+
+| Passo | Exame (PDF) | Foto do pet |
+|-------|-------------|-------------|
+| 1. Pedir a URL de envio | `POST /api/exames/{id}/arquivo/envio` (VET) | `POST /api/pets/{id}/foto/envio` (VET ou responsável dono) |
+| 2. Enviar | `PUT` do arquivo na URL devolvida, com o mesmo `Content-Type` | idem |
+| 3. Confirmar | `PUT /api/exames/{id}/arquivo` com o `caminho` | `PUT /api/pets/{id}/foto` com o `caminho` |
+| Baixar | `GET /api/exames/{id}/arquivo` (VET e responsável dono) | `GET /api/pets/{id}/foto` |
+
+- Tipos aceitos: `application/pdf` em `exames/{exameId}/`; `image/jpeg`, `image/png` e `image/webp` em `fotos/{petId}/`. O banco guarda só o caminho (`arquivo_resultado`, `foto_path`); as respostas trazem `temArquivo`/`temFoto`.
+- O `caminho` confirmado precisa estar na subpasta do próprio registro, então ninguém aponta um exame para o arquivo de outro.
+- Credenciais: o SDK usa as credenciais padrão do Google. Localmente, `GOOGLE_APPLICATION_CREDENTIALS` aponta para o JSON de uma conta de serviço com acesso ao bucket e permissão de assinar URLs (papel *Service Account Token Creator* nela mesma); no Cloud Run vale a conta de serviço do próprio serviço. Uma chave de API **não** serve para o Storage.
+- **Modo local** (`ARMAZENAMENTO_MODO=local`): grava em `ARMAZENAMENTO_PASTA` (padrão `./arquivos-locais`, ignorada pelo git) e imita as URLs assinadas com HMAC em `/api/arquivos/**`. Serve para desenvolver sem conta do Google; `ARMAZENAMENTO_URL_PUBLICA` deve ser o endereço pelo qual o **app** alcança o Java (IP da máquina no celular, `http://10.0.2.2:8080` no emulador Android).
+- Variáveis: `GCS_BUCKET` (padrão `vitalis-docs`), `GCP_PROJECT_ID` (padrão `vitalis-pethub`), `GCS_VALIDADE_URL_MIN` (padrão 15).
+- O bucket precisa de CORS liberando `PUT`/`GET` e o cabeçalho `Content-Type` para o app web enviar direto.
+
+## Integração com o serviço .NET
+
+O .NET (Vitalis) é dono de responsável, endereço, contato e lembrete. O Java é dono de pet, consulta,
+prontuário e IA. Cada serviço cria **só as próprias tabelas**, então a ordem de subida não importa e
+nenhuma chave estrangeira cruza os bancos.
+
+| Fluxo | Direção | Como |
+|---|---|---|
+| Responsável agenda ou cadastra pet | .NET → Java | JWT de serviço (`sub` = responsável); o Java aplica as regras de posse |
+| Cadastro de responsável (CPF, nome, e-mail) | Java → .NET | `GET /api/responsavel/{id}` e `/api/responsavel/buscar?cpf=` com JWT de serviço emitido pelo Java |
+| Lembrete | Java → fila → .NET | mensagem JSON no RabbitMQ |
+| Exclusão de responsável | .NET → Java | `DELETE /api/pets/responsavel/{id}` com JWT de serviço cujo `sub` é o id; o .NET só apaga o responsável se o Java confirmar |
+
+**Mensagem do lembrete** — exchange `pethub.lembretes.exchange` (direct, durável), routing key
+`lembrete.criar`, fila `pethub.lembretes.queue` (durável). O corpo tem os campos do `CriarLembreteDto`
+do .NET:
+
+```json
+{
+  "responsavelId": 7, "petId": 5, "tipo": "CONSULTA", "dataAgendada": "2026-11-01",
+  "mensagem": "Consulta agendada para Rex em 2026-11-01T14:30",
+  "referenciaId": 100, "referenciaTipo": "Consulta"
+}
+```
+
+`tipo` vai como texto (`CONSULTA`, `VACINA`, `EXAME`, `MEDICAMENTO`); o .NET precisa deserializar enum
+por nome. `referenciaTipo` + `referenciaId` identificam a origem, e o consumidor deve usá-los para não
+criar o mesmo lembrete duas vezes numa reentrega.
+
+**Limites conhecidos**
+
+- Se o RabbitMQ estiver fora do ar na hora, a consulta é gravada e o erro vai para o log: o lembrete
+  daquela consulta não é reenviado sozinho.
+- O job de reenvio (`@Scheduled`, 6h) só roda com a instância ligada. Com escala a zero, dispare o
+  reenvio por outro meio ou mantenha a instância ativa.
+- `nomeResponsavel` no pet é uma cópia gravada no cadastro; se o nome mudar no .NET, o pet antigo
+  continua com o nome anterior.
+- Excluir um responsável no .NET não apaga os pets dele aqui.
 
 ## Estrutura do Projeto
 
@@ -505,15 +487,12 @@ fiap.pethub
 ├── security/                    → Autenticação JWT
 │   ├── JwtService.java          → Emite e verifica os tokens
 │   ├── JwtAuthenticationFilter.java → Lê o cabeçalho Authorization a cada requisição
-│   ├── UsuarioDetailsService.java   → Carrega veterinário ou responsável pelo e-mail
+│   ├── ServicoAuthenticationFilter.java → JWT de serviço do .NET (X-Service-Authorization)
+│   ├── UsuarioDetailsService.java   → Carrega o veterinário pelo e-mail
 │   ├── UsuarioAutenticado.java  → Principal com id e perfil
 │   └── EscopoDoUsuario.java     → Regra de posse: o que o usuário pode enxergar
 │
 ├── controller/                  → Controladores (endpoints REST)
-│   ├── web/                     → Controladores Web (Thymeleaf)
-│   │   ├── WebAuthController.java
-│   │   ├── WebTutorController.java
-│   │   └── WebVetController.java
 │   ├── AuthController.java
 │   ├── PetsController.java
 │   ├── ConsultasController.java
@@ -521,16 +500,13 @@ fiap.pethub
 │   ├── DiagnosticosController.java
 │   ├── VacinasTratamentosController.java
 │   ├── PedidosMedicosController.java
-│   ├── LeiturasWearableController.java
-│   ├── LembretesController.java
+│   ├── IaController.java
 │   ├── VeterinariosController.java
 │   ├── UnidadesVeterinarioController.java
-│   └── ResponsaveisController.java
 │
 ├── dto/                         → Data Transfer Objects
 │   ├── request/                 → DTOs de entrada (validação)
 │   │   ├── LoginRequest.java
-│   │   ├── CreatePetRequest.java
 │   │   └── ...
 │   └── response/                → DTOs de saída
 │       ├── LoginResponse.java
@@ -544,20 +520,16 @@ fiap.pethub
 │   ├── Diagnostico.java
 │   ├── VacinaTratamento.java
 │   ├── PedidoMedico.java
-│   ├── LeituraWearable.java
-│   ├── Lembrete.java
+│   ├── AnaliseConsulta.java
+│   ├── EmailConsulta.java
 │   ├── Veterinario.java
-│   ├── UnidadeVeterinario.java
-│   ├── Responsavel.java
-│   ├── ResponsavelContato.java
-│   └── ResponsavelEndereco.java
+│   └── UnidadeVeterinario.java
 │
 ├── enums/                       → Enumerações
 │   ├── Perfil.java              → VETERINARIO e RESPONSAVEL
 │   ├── StatusConsulta.java
-│   ├── StatusLembrete.java
+│   ├── StatusEmail.java
 │   ├── StatusPedidoMedico.java
-│   ├── TipoAlertaHidratacao.java
 │   ├── TipoConsulta.java
 │   ├── TipoLembrete.java
 │   ├── TipoPedidoMedico.java
@@ -583,40 +555,24 @@ fiap.pethub
 │   ├── ConsultaRepository.java
 │   └── ...
 │
+├── ia/                          → Groq: prompts, cliente HTTP e serviços de IA
+├── messaging/                   → Produtor RabbitMQ (fila de lembretes)
+├── email/                       → Confirmação por e-mail (Brevo) e reenvio diário
+├── integracao/                  → Cliente do serviço .NET de responsáveis
+│
 ├── service/                     → Lógica de negócio
 │   ├── AuthService.java
 │   ├── ConsultaService.java     → Agendamento e suas guardas de agenda
 │   ├── ProntuarioService.java   → Fecha a consulta numa transação só
-│   ├── LeituraWearableService.java → Rotina diária de hidratação
 │   ├── RemocaoEmCascata.java    → Remoção coerente dos dependentes
 │   ├── PetService.java
 │   └── ...
 │
 └── resources/
+    ├── prompts/                 → Instruções das funções de IA (texto puro)
     ├── application.properties   → Configurações da aplicação
     ├── db/migration/            → Migrations do Flyway
     │   └── V1__schema_inicial.sql
-    ├── static/
-    │   └── css/app.css          → Folha de estilo das telas
-    └── templates/               → Telas do Frontend (Thymeleaf)
-        ├── login.html
-        ├── registrar-tutor.html
-        ├── registrar-vet.html
-        ├── error.html           → Página de erro, inclui o 403 de perfil errado
-        ├── fragments/
-        │   └── campos.html      → Fragmento reusado pelos formulários
-        ├── tutor/
-        │   ├── dashboard.html
-        │   ├── novo-pet.html
-        │   ├── editar-pet.html
-        │   ├── pet-detalhes.html
-        │   ├── lembretes.html
-        │   └── perfil.html
-        └── vet/
-            ├── dashboard.html
-            ├── nova-consulta.html
-            ├── consulta-detalhes.html
-            └── perfil.html
 ```
 
 ## Requisitos Técnicos Atendidos
@@ -625,12 +581,11 @@ fiap.pethub
 
 | Requisito | Status | Evidência |
 |---|---|---|
-| Flyway para versionamento do banco | ✅ | `V1__schema_inicial.sql` com 13 tabelas, 13 sequences e 20 FKs; `ddl-auto=validate` |
-| Spring Security — dois tipos de usuário | ✅ | Perfis `VETERINARIO` e `RESPONSAVEL`, autenticação JWT com senha em BCrypt |
+| Flyway para versionamento do banco | ✅ | `V1__schema_inicial.sql` com 10 tabelas, 10 sequences e 16 FKs; `ddl-auto=validate` |
+| Spring Security — dois tipos de usuário | ✅ | Perfis `VETERINARIO` (JWT, senha em BCrypt) e `RESPONSAVEL` (credencial de serviço do .NET) |
 | Spring Security — rotas protegidas por perfil | ✅ | `SecurityConfig` por rota e método, mais posse por recurso em `EscopoDoUsuario` |
-| Dois fluxos completos além do CRUD | ✅ | [Agendamento com validação de agenda](#1-agendamento-de-consulta-com-validação-de-agenda) (`ConsultaService`) e [fechamento transacional do prontuário](#2-registro-do-prontuário-e-fechamento-da-consulta) (`ProntuarioService`), mais a rotina agendada de hidratação e três lembretes automáticos |
+| Dois fluxos completos além do CRUD | ✅ | [Agendamento com validação de agenda](#1-agendamento-de-consulta-com-validação-de-agenda) (`ConsultaService`) e [fechamento transacional do prontuário](#2-registro-do-prontuário-e-fechamento-da-consulta) (`ProntuarioService`) e lembretes automáticos por mensageria |
 | Validações nos dados de entrada | ✅ | Bean Validation nos DTOs (erro 400 por campo) e regras de negócio em serviço (erro 409) |
-| Frontend com UI/UX | ✅ | 15 templates Thymeleaf (14 telas mais um fragmento reusado), todos listados e com print em [Mapa das páginas](#mapa-das-páginas-frontend-thymeleaf) |
 
 ### Sprints anteriores
 
@@ -644,78 +599,6 @@ fiap.pethub
 | Tratamento de erros/exceções | ✅ | GlobalExceptionHandler com 6+ handlers |
 | Utilização de DTOs | ✅ | 15+ DTOs request/response + MapStruct |
 | Documentação com Swagger | ✅ | OpenAPI 3.0 + Swagger UI |
-
-## Prints das telas (frontend Thymeleaf)
-
-Capturas da aplicação rodando em `http://localhost:8080`, com os dados de demonstração
-carregados. Elas comprovam a integração do Spring Boot com o Thymeleaf: cadastro, login por
-sessão (Spring Security), navegação protegida por perfil e os fluxos de negócio.
-
-### Públicas
-
-**01 — Login** (`/login`)
-
-![Tela de login](docs/img/01-login.png)
-
-**02 — Cadastro de tutor** (`/registrar/tutor`)
-
-![Cadastro de tutor](docs/img/02-registrar-tutor.png)
-
-**03 — Cadastro de veterinário** (`/registrar/vet`)
-
-![Cadastro de veterinário](docs/img/03-registrar-vet.png)
-
-### Tutor
-
-**04 — Painel do tutor** (`/tutor/dashboard`) — lista só os pets sob sua responsabilidade
-
-![Painel do tutor](docs/img/04-tutor-dashboard.png)
-
-**05 — Novo pet** (`/tutor/pets/novo`)
-
-![Formulário de novo pet](docs/img/05-tutor-novo-pet.png)
-
-**06 — Prontuário do pet** (`/tutor/pets/{id}`) — o tutor lê o que o veterinário registrou
-
-![Prontuário do pet](docs/img/06-tutor-pet-detalhes.png)
-
-**07 — Editar e excluir pet** (`/tutor/pets/{id}/editar`)
-
-![Edição de pet](docs/img/07-tutor-editar-pet.png)
-
-**08 — Lembretes** (`/tutor/lembretes`) — gerados pelo sistema, não cadastrados à mão
-
-![Lembretes do tutor](docs/img/08-tutor-lembretes.png)
-
-**09 — Perfil do tutor** (`/tutor/perfil`) — atualizar e excluir a própria conta
-
-![Perfil do tutor](docs/img/09-tutor-perfil.png)
-
-**10 — Controle de acesso por perfil** — tutor logado tentando abrir `/vet/dashboard`
-
-![Acesso negado 403](docs/img/10-acesso-negado.png)
-
-### Veterinário
-
-**11 — Painel do veterinário** (`/vet/dashboard`) — a agenda de consultas
-
-![Painel do veterinário](docs/img/11-vet-dashboard.png)
-
-**12 — Agendar consulta** (`/vet/consultas/nova`) — [fluxo 1](#1-agendamento-de-consulta-com-validação-de-agenda), com validação de agenda
-
-![Nova consulta](docs/img/12-vet-nova-consulta.png)
-
-**13 — Registrar prontuário** (`/vet/consultas/{id}`) — [fluxo 2](#2-registro-do-prontuário-e-fechamento-da-consulta): diagnóstico, pedido médico e conclusão numa transação só
-
-![Formulário de prontuário](docs/img/13-vet-prontuario-form.png)
-
-**14 — Consulta já concluída** — a mesma tela recusa um segundo prontuário
-
-![Consulta concluída](docs/img/14-vet-consulta-fechada.png)
-
-**15 — Perfil do veterinário** (`/vet/perfil`)
-
-![Perfil do veterinário](docs/img/15-vet-perfil.png)
 
 ## Prints do Swagger UI (todos os endpoints)
 
@@ -755,10 +638,6 @@ Cada grupo em detalhe:
 **Vacinas e tratamentos**
 
 ![Swagger Vacinas e Tratamentos](docs/img/17-12-swagger-vacinas-e-tratamentos.png)
-
-**Leituras wearable**
-
-![Swagger Leituras Wearable](docs/img/17-04-swagger-leituras-wearable.png)
 
 **Lembretes**
 
@@ -818,13 +697,10 @@ autentique-se antes (ver [Acesso à aplicação](#acesso-à-aplicação)) e envi
 ### 11 - Criar vacina/tratamento - `POST /api/vacinas-tratamentos`
 <img width="435" height="564" alt="image" src="https://github.com/user-attachments/assets/040d7cf3-37c2-4d4c-8fff-72a16ec0ea72" />
 
-### 12 - Criar leitura wearable - `POST /api/leituras-wearable`
-<img width="356" height="506" alt="image" src="https://github.com/user-attachments/assets/20eee015-ca0c-4983-be4d-511dafbcafbe" />
-
-### 13 - Criar lembrete - `POST /api/lembretes`
+### 12 - Criar lembrete - `POST /api/lembretes`
 <img width="419" height="608" alt="image" src="https://github.com/user-attachments/assets/0eab360e-61bf-4e13-a560-0b8e48bc1f7a" />
 
-### 14 - Atualizar status do lembrete - `PATCH /api/lembretes/1/status?status={status}`
+### 13 - Atualizar status do lembrete - `PATCH /api/lembretes/1/status?status={status}`
 <img width="440" height="547" alt="image" src="https://github.com/user-attachments/assets/2e197512-fd7c-4a60-b587-2ac3af0548ad" />
 
 > Listagem para confirmação de informações

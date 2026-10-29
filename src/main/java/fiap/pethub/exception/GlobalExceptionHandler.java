@@ -20,10 +20,8 @@ import java.util.List;
 /**
  * Traduz exceção em resposta JSON — e só para a API.
  *
- * O filtro por {@code @RestController} é o que separa os dois mundos: sem ele,
- * um erro numa tela Thymeleaf também viraria JSON, e o usuário veria o corpo de
- * uma resposta de API no lugar da página. Os controllers web são {@code @Controller},
- * ficam de fora daqui e caem na página de erro em {@code templates/error.html}.
+ * O filtro por {@code @RestController} mantém este handler restrito aos endpoints
+ * REST, sem interferir em outros tipos de controller.
  */
 @RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
@@ -94,6 +92,14 @@ public class GlobalExceptionHandler {
         log.warn("Autenticação recusada: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Credenciais inválidas"));
+    }
+
+    /** IA e serviço de responsáveis são dependências externas: quando falham, a API responde 503 e não 500. */
+    @ExceptionHandler(ServicoIndisponivelException.class)
+    public ResponseEntity<ErrorResponse> handleServicoIndisponivel(ServicoIndisponivelException ex) {
+        log.warn("Dependência externa indisponível: {}", ex.getMessage(), ex.getCause());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(RegraDeNegocioException.class)

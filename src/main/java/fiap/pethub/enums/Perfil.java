@@ -9,7 +9,7 @@ public enum Perfil {
     /** Produz prontuário: consultas, diagnósticos, exames, prescrições e vacinas. */
     VETERINARIO,
 
-    /** Tutor do animal. Consulta o histórico e gerencia os próprios lembretes. */
+    /** Responsável do animal. Consulta o histórico e gerencia os próprios lembretes. */
     RESPONSAVEL;
 
     /**

@@ -1,7 +1,6 @@
 package fiap.pethub.dto.request;
 
 import fiap.pethub.enums.StatusConsulta;
-import fiap.pethub.enums.TipoConsulta;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,9 +15,6 @@ public class CreateConsultaRequest {
 
     @NotNull(message = "Data e hora são obrigatórias")
     private LocalDateTime dataHora;
-
-    @NotNull(message = "Tipo é obrigatório")
-    private TipoConsulta tipo;
 
     private String observacoes;
 

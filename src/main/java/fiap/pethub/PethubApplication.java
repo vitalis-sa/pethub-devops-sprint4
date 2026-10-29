@@ -8,8 +8,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.cache.annotation.EnableCaching;
+
+import java.util.TimeZone;
 
 /**
  * O esquema de segurança abaixo é o que faz o Swagger UI mostrar o botão
@@ -23,7 +26,7 @@ import org.springframework.cache.annotation.EnableCaching;
     info = @Info(
         title = "PetHub API — Java Backend",
         version = "1.1.0",
-        description = "API responsável por Veterinários, Unidades Veterinárias, Pets, Consultas, Exames, Diagnósticos, Vacinas/Tratamentos, Pedidos Médicos e Leituras Wearable IoT.",
+        description = "API responsável por Veterinários, Unidades Veterinárias, Pets, Consultas, Exames, Diagnósticos, Vacinas/Tratamentos e Pedidos Médicos.",
         contact = @Contact(
             name = "PetHub Team",
             url = "https://github.com/pethub"
@@ -39,11 +42,16 @@ import org.springframework.cache.annotation.EnableCaching;
     description = "Token obtido em POST /api/auth/login. Cole aqui só o token, sem o prefixo 'Bearer '."
 )
 @SpringBootApplication
+@ConfigurationPropertiesScan
 @EnableScheduling
 @EnableCaching
 public class PethubApplication {
 
+	/** Fuso do negócio: consultas e lembretes são horários de Brasília, não do servidor (que costuma ser UTC). */
+	public static final String FUSO = "America/Sao_Paulo";
+
 	public static void main(String[] args) {
+		TimeZone.setDefault(TimeZone.getTimeZone(FUSO));
 		SpringApplication.run(PethubApplication.class, args);
 	}
 

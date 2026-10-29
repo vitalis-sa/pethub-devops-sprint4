@@ -1,6 +1,5 @@
 package fiap.pethub.security;
 
-import fiap.pethub.entity.Responsavel;
 import fiap.pethub.entity.Veterinario;
 import fiap.pethub.exception.AcessoNegadoException;
 import org.junit.jupiter.api.AfterEach;
@@ -32,8 +31,7 @@ class EscopoDoUsuarioTest {
     }
 
     private UsuarioAutenticado responsavel(Long id) {
-        return UsuarioAutenticado.de(Responsavel.builder()
-                .id(id).nome("Tutor").email("tutor" + id + "@pethub.com").senha("hash").ativo(true).build());
+        return UsuarioAutenticado.deResponsavel(id);
     }
 
     @AfterEach
@@ -79,33 +77,6 @@ class EscopoDoUsuarioTest {
     }
 
     /**
-     * Ler cadastro alheio o veterinário pode — precisa disso para vincular um pet
-     * ao tutor. Editar, não: o cadastro é do titular.
-     */
-    @Test
-    void veterinarioNaoEditaCadastroDeOutraPessoa() {
-        autenticar(veterinario());
-
-        assertThatThrownBy(() -> escopo.exigirSerOProprio(99L))
-                .isInstanceOf(AcessoNegadoException.class);
-    }
-
-    @Test
-    void responsavelEditaOProprioCadastro() {
-        autenticar(responsavel(7L));
-
-        assertThatCode(() -> escopo.exigirSerOProprio(7L)).doesNotThrowAnyException();
-    }
-
-    @Test
-    void responsavelNaoEditaCadastroDeOutro() {
-        autenticar(responsavel(7L));
-
-        assertThatThrownBy(() -> escopo.exigirSerOProprio(99L))
-                .isInstanceOf(AcessoNegadoException.class);
-    }
-
-    /**
      * Veterinários enxergam o mesmo conjunto, então compartilham a entrada de
      * cache. Cada responsável precisa da sua, senão um receberia o recurso do
      * outro num acerto de cache.
@@ -116,12 +87,12 @@ class EscopoDoUsuarioTest {
         String chaveVet = escopo.chaveDeCache();
 
         autenticar(responsavel(7L));
-        String chaveTutor7 = escopo.chaveDeCache();
+        String chaveResponsavel7 = escopo.chaveDeCache();
 
         autenticar(responsavel(8L));
-        String chaveTutor8 = escopo.chaveDeCache();
+        String chaveResponsavel8 = escopo.chaveDeCache();
 
-        assertThat(chaveTutor7).isNotEqualTo(chaveTutor8);
-        assertThat(chaveVet).isNotEqualTo(chaveTutor7).isNotEqualTo(chaveTutor8);
+        assertThat(chaveResponsavel7).isNotEqualTo(chaveResponsavel8);
+        assertThat(chaveVet).isNotEqualTo(chaveResponsavel7).isNotEqualTo(chaveResponsavel8);
     }
 }

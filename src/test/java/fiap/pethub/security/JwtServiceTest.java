@@ -47,7 +47,7 @@ class JwtServiceTest {
 
     @Test
     void tokenIntegroEDentroDaValidadeDeveSerAceito() {
-        String token = jwtService.gerarToken("tutor@pethub.com", Perfil.RESPONSAVEL);
+        String token = jwtService.gerarToken("responsavel@pethub.com", Perfil.RESPONSAVEL);
 
         assertThat(jwtService.valido(token)).isTrue();
     }

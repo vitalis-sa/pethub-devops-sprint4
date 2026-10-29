@@ -32,4 +32,5 @@ EXPOSE 8080
 # Define usuário não-root antes do ENTRYPOINT
 USER springuser
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# Usa até 75% da memória do contêiner (o Cloud Run limita a RAM; sem isso a JVM pode estourar e ser morta).
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]

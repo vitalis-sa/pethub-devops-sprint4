@@ -26,8 +26,7 @@ class ExposicaoDeIdTest {
             ExameResponse.class,
             DiagnosticoResponse.class,
             PedidoMedicoResponse.class,
-            VacinaTratamentoResponse.class,
-            LeituraWearableResponse.class
+            VacinaTratamentoResponse.class
     })
     void respostaDeveExporCampoId(Class<?> tipoDaResposta) throws Exception {
         Object resposta = tipoDaResposta.getDeclaredConstructor().newInstance();

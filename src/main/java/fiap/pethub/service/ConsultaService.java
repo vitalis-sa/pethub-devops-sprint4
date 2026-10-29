@@ -7,10 +7,14 @@ import fiap.pethub.entity.Consulta;
 import fiap.pethub.entity.Pet;
 import fiap.pethub.entity.Veterinario;
 import fiap.pethub.enums.StatusConsulta;
+import fiap.pethub.email.ConsultaAgendada;
 import fiap.pethub.enums.TipoLembrete;
 import fiap.pethub.exception.RegraDeNegocioException;
 import fiap.pethub.exception.ResourceNotFoundException;
+import fiap.pethub.messaging.LembreteSolicitado;
 import fiap.pethub.mapper.ConsultaMapper;
+import fiap.pethub.repository.AnaliseConsultaRepository;
+import fiap.pethub.repository.EmailConsultaRepository;
 import fiap.pethub.repository.ConsultaRepository;
 import fiap.pethub.repository.PetRepository;
 import fiap.pethub.security.EscopoDoUsuario;
@@ -19,12 +23,14 @@ import fiap.pethub.repository.VeterinarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -33,14 +39,20 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class ConsultaService {
 
+    /** Como a data aparece no texto do lembrete: 31/10/2026 às 16:45. */
+    private static final DateTimeFormatter DATA_HORA_DO_AVISO = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm");
+
     private final ConsultaRepository repository;
     private final PetRepository petRepository;
     private final VeterinarioRepository veterinarioRepository;
     private final UnidadeVeterinarioRepository unidadeRepository;
     private final ConsultaMapper mapper;
     private final EscopoDoUsuario escopo;
-    private final LembreteService lembreteService;
+    private final ApplicationEventPublisher eventos;
+    private final AnaliseConsultaRepository analiseConsultaRepository;
+    private final EmailConsultaRepository emailConsultaRepository;
 
+    @Cacheable(value = "consultas", key = "'lista-' + #petId + '-' + #veterinarioId + '-' + #status + '-' + #pageable + '-' + @escopoDoUsuario.chaveDeCache()")
     public Page<ConsultaResponse> findAll(Long petId, Long veterinarioId, StatusConsulta status, Pageable pageable) {
         if (petId != null) {
             exigirPosseDoPet(petId);
@@ -62,19 +74,33 @@ public class ConsultaService {
     @Cacheable(value = "consultas", key = "#id + '-' + @escopoDoUsuario.chaveDeCache()")
     public ConsultaResponse findById(Long id) {
         Consulta entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         return mapper.toResponse(entidade);
     }
 
     @Transactional
     @CacheEvict(value = "consultas", allEntries = true)
     public ConsultaResponse create(ConsultaRequest request) {
+        Pet pet = findPet(request.getPetId());
+        escopo.exigirPosse(pet.getResponsavelId());
+        StatusConsulta status = statusPermitido(request);
         exigirAgendaLivre(request);
-        exigirHorarioFuturoParaAgendamento(request);
-        Consulta entity = buildConsultaEntity(request);
-        Consulta saved = repository.save(entity);
-        notificarResponsavel(saved);
-        return mapper.toResponse(saved);
+        exigirHorarioFuturoParaAgendamento(request, status);
+
+        Consulta salva = repository.save(montarConsulta(request, pet, status));
+
+        if (status == StatusConsulta.AGENDADA) {
+            avisarResponsavel(salva);
+        }
+        return mapper.toResponse(salva);
+    }
+
+    /**
+     * Só o veterinário lança consulta já realizada ou cancelada. O responsável
+     * apenas agenda, seja qual for o status que mandar.
+     */
+    private StatusConsulta statusPermitido(ConsultaRequest request) {
+        return escopo.ehVeterinario() ? request.getStatus() : StatusConsulta.AGENDADA;
     }
 
     /**
@@ -95,8 +121,8 @@ public class ConsultaService {
      * isso a regra vale so para o que esta sendo agendado, e nao para uma
      * consulta lancada como realizada.
      */
-    private void exigirHorarioFuturoParaAgendamento(ConsultaRequest request) {
-        boolean agendamento = request.getStatus() == StatusConsulta.AGENDADA;
+    private void exigirHorarioFuturoParaAgendamento(ConsultaRequest request, StatusConsulta status) {
+        boolean agendamento = status == StatusConsulta.AGENDADA;
         if (agendamento && request.getDataHora().isBefore(LocalDateTime.now())) {
             throw new RegraDeNegocioException(
                     "Não é possível agendar uma consulta para uma data que já passou.");
@@ -107,10 +133,50 @@ public class ConsultaService {
     @CacheEvict(value = "consultas", allEntries = true)
     public ConsultaResponse update(Long id, ConsultaRequest request) {
         Consulta entity = findEntityById(id);
-        escopo.exigirPosse(entity.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entity.getPet().getResponsavelId());
         mapper.updateEntity(request, entity);
         applyUnidade(request.getUnidadeId(), entity);
         return mapper.toResponse(repository.save(entity));
+    }
+
+    /**
+     * Muda o horário de uma consulta ainda agendada. Vale as mesmas regras do agendamento (futuro, agenda
+     * livre) e avisa o .NET de novo: o lembrete da consulta é atualizado, não duplicado.
+     */
+    @Transactional
+    @CacheEvict(value = "consultas", allEntries = true)
+    public ConsultaResponse remarcar(Long id, LocalDateTime novaDataHora) {
+        Consulta consulta = consultaAgendadaDoUsuario(id);
+        if (novaDataHora.isBefore(LocalDateTime.now())) {
+            throw new RegraDeNegocioException("Não é possível remarcar para uma data que já passou.");
+        }
+        boolean mudou = !novaDataHora.equals(consulta.getDataHora());
+        if (mudou && repository.existsByVeterinarioIdAndDataHoraAndStatusNot(
+                consulta.getVeterinario().getId(), novaDataHora, StatusConsulta.CANCELADA)) {
+            throw new RegraDeNegocioException("Este veterinário já tem uma consulta marcada neste horário.");
+        }
+        consulta.setDataHora(novaDataHora);
+        Consulta salva = repository.save(consulta);
+        solicitarLembrete(salva);
+        return mapper.toResponse(salva);
+    }
+
+    /** O responsável conta ao veterinário o que observou, antes do atendimento. */
+    @Transactional
+    @CacheEvict(value = "consultas", allEntries = true)
+    public ConsultaResponse registrarQueixas(Long id, String queixas) {
+        Consulta consulta = consultaAgendadaDoUsuario(id);
+        consulta.setQueixas(queixas.strip());
+        return mapper.toResponse(repository.save(consulta));
+    }
+
+    private Consulta consultaAgendadaDoUsuario(Long id) {
+        Consulta consulta = findEntityById(id);
+        escopo.exigirPosse(consulta.getPet().getResponsavelId());
+        if (consulta.getStatus() != StatusConsulta.AGENDADA) {
+            throw new RegraDeNegocioException("Só é possível alterar uma consulta que ainda está agendada.");
+        }
+        return consulta;
     }
 
     /**
@@ -122,7 +188,7 @@ public class ConsultaService {
     @CacheEvict(value = "consultas", allEntries = true)
     public ConsultaResponse concluir(Long id) {
         Consulta entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         entidade.setStatus(StatusConsulta.REALIZADA);
         return mapper.toResponse(repository.save(entidade));
     }
@@ -131,14 +197,17 @@ public class ConsultaService {
     @CacheEvict(value = "consultas", allEntries = true)
     public DeleteResponse delete(Long id) {
         Consulta entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
+        analiseConsultaRepository.deleteByConsultaId(id);
+        emailConsultaRepository.deleteByConsultaId(id);
         repository.delete(entidade);
         return DeleteResponse.of("Consulta", id);
     }
 
-    private Consulta buildConsultaEntity(ConsultaRequest request) {
+    private Consulta montarConsulta(ConsultaRequest request, Pet pet, StatusConsulta status) {
         Consulta entity = mapper.toEntity(request);
-        entity.setPet(findPet(request.getPetId()));
+        entity.setStatus(status);
+        entity.setPet(pet);
         entity.setVeterinario(findVeterinario(request.getVeterinarioId()));
         applyUnidade(request.getUnidadeId(), entity);
         return entity;
@@ -156,17 +225,21 @@ public class ConsultaService {
                         });
     }
 
-    private void notificarResponsavel(Consulta saved) {
-        Pet pet = saved.getPet();
-        lembreteService.criarLembrete(
-                pet.getResponsavel().getId(),
-                pet.getId(),
-                TipoLembrete.CONSULTA,
-                saved.getDataHora().toLocalDate(),
-                "Consulta agendada para " + pet.getNome() + " em " + saved.getDataHora(),
-                saved.getId(),
-                "Consulta"
-        );
+    /**
+     * Os dois avisos só acontecem depois que a consulta foi confirmada no banco: o lembrete segue
+     * para o .NET pela fila, e o e-mail de confirmação sai direto.
+     */
+    private void avisarResponsavel(Consulta consulta) {
+        solicitarLembrete(consulta);
+        eventos.publishEvent(new ConsultaAgendada(consulta.getId()));
+    }
+
+    private void solicitarLembrete(Consulta consulta) {
+        Pet pet = consulta.getPet();
+        eventos.publishEvent(new LembreteSolicitado(
+                pet.getResponsavelId(), pet.getId(), TipoLembrete.CONSULTA, consulta.getDataHora().toLocalDate(),
+                "Consulta agendada para " + pet.getNome() + " em " + consulta.getDataHora().format(DATA_HORA_DO_AVISO),
+                consulta.getId(), "Consulta"));
     }
 
     private Pet findPet(Long petId) {
@@ -188,7 +261,7 @@ public class ConsultaService {
 
     /** Filtrar por um pet alheio nao pode revelar sequer que ele existe. */
     private void exigirPosseDoPet(Long petId) {
-        escopo.exigirPosse(findPet(petId).getResponsavel().getId());
+        escopo.exigirPosse(findPet(petId).getResponsavelId());
     }
 
     private Consulta findEntityById(Long id) {

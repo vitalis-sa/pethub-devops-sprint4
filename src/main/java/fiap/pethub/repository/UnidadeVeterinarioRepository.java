@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UnidadeVeterinarioRepository extends JpaRepository<UnidadeVeterinario, Long> {
     Page<UnidadeVeterinario> findByNomeContainingIgnoreCase(String nome, Pageable pageable);
+    boolean existsByCep(String cep);
     Page<UnidadeVeterinario> findByCidade(String cidade, Pageable pageable);
 }

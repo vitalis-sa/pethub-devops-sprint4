@@ -51,7 +51,7 @@ class GlobalExceptionHandlerTest {
 
     /**
      * Recurso alheio responde 404, nao 403: 403 confirmaria que aquele id
-     * existe e permitiria enumerar o banco tutor por tutor.
+     * existe e permitiria enumerar o banco responsável por responsável.
      */
     @Test
     void recursoDeOutroUsuarioVira404ENao403() throws Exception {

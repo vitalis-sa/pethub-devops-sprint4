@@ -36,6 +36,9 @@ public class VacinaTratamentoResponse {
     @Schema(description = "Observações")
     private String observacoes;
 
+    @Schema(description = "Consulta de onde o registro veio (a receita do atendimento), se houver", example = "1")
+    private Long consultaId;
+
     @Schema(description = "Nome do pet", example = "Rex")
     private String nomePet;
 

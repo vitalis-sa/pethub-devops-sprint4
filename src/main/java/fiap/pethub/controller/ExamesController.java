@@ -1,6 +1,10 @@
 package fiap.pethub.controller;
 
+import fiap.pethub.dto.request.ArquivoEnviadoRequest;
+import fiap.pethub.dto.request.EnvioDeArquivoRequest;
 import fiap.pethub.dto.request.ExameRequest;
+import fiap.pethub.dto.response.UrlDeDownloadResponse;
+import fiap.pethub.dto.response.UrlDeEnvioResponse;
 import fiap.pethub.dto.response.DeleteResponse;
 import fiap.pethub.dto.response.ExameResponse;
 import fiap.pethub.service.ExameService;
@@ -78,5 +82,26 @@ public class ExamesController {
     public ResponseEntity<DeleteResponse> delete(@PathVariable Long id) {
         return ResponseEntity.ok(service.delete(id));
     }
-}
 
+    @Operation(summary = "Passo 1 do PDF: URL assinada para enviar o arquivo ao bucket",
+            description = "Só application/pdf. Envie o arquivo com PUT na URL devolvida e confirme com PUT /api/exames/{id}/arquivo.")
+    @PostMapping("/{id}/arquivo/envio")
+    public ResponseEntity<UrlDeEnvioResponse> prepararEnvioDoArquivo(@PathVariable Long id,
+                                                                     @Valid @RequestBody EnvioDeArquivoRequest request) {
+        return ResponseEntity.ok(service.prepararEnvioDoArquivo(id, request.contentType()));
+    }
+
+    @Operation(summary = "Passo 2 do PDF: confirma o envio e vincula o arquivo ao exame")
+    @PutMapping("/{id}/arquivo")
+    public ResponseEntity<ExameResponse> confirmarArquivo(@PathVariable Long id,
+                                                          @Valid @RequestBody ArquivoEnviadoRequest request) {
+        return ResponseEntity.ok(service.confirmarArquivo(id, request.caminho()));
+    }
+
+    @Operation(summary = "URL temporária para baixar o PDF do exame")
+    @ApiResponses({@ApiResponse(responseCode = "404", description = "Exame sem arquivo")})
+    @GetMapping("/{id}/arquivo")
+    public ResponseEntity<UrlDeDownloadResponse> urlDoArquivo(@PathVariable Long id) {
+        return ResponseEntity.ok(service.urlDoArquivo(id));
+    }
+}

@@ -3,7 +3,6 @@ package fiap.pethub.service;
 import fiap.pethub.dto.response.ExameResponse;
 import fiap.pethub.entity.Exame;
 import fiap.pethub.entity.Pet;
-import fiap.pethub.entity.Responsavel;
 import fiap.pethub.exception.AcessoNegadoException;
 import fiap.pethub.mapper.ExameMapper;
 import fiap.pethub.repository.ConsultaRepository;
@@ -33,9 +32,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
- * Exame é representativo das seis entidades clínicas: todas penduram em pet_id
+ * Exame é representativo das cinco entidades clínicas: todas penduram em pet_id
  * e seguem exatamente esta regra. O que vale aqui vale para consulta,
- * diagnóstico, pedido médico, vacina e leitura de wearable.
+ * diagnóstico, pedido médico e vacina.
  */
 @ExtendWith(MockitoExtension.class)
 class ExameServicePosseTest {
@@ -49,9 +48,8 @@ class ExameServicePosseTest {
 
     private final Pageable pagina = PageRequest.of(0, 10);
 
-    private Exame exameDoTutor(Long responsavelId) {
-        Responsavel dono = Responsavel.builder().id(responsavelId).build();
-        Pet pet = Pet.builder().id(1L).responsavel(dono).build();
+    private Exame exameDoResponsavel(Long responsavelId) {
+        Pet pet = Pet.builder().id(1L).responsavelId(responsavelId).build();
         return Exame.builder().id(10L).pet(pet).build();
     }
 
@@ -80,7 +78,7 @@ class ExameServicePosseTest {
 
     @Test
     void responsavelNaoLeExameDePetDeOutro() {
-        Exame alheio = exameDoTutor(99L);
+        Exame alheio = exameDoResponsavel(99L);
         lenient().when(repository.findById(10L)).thenReturn(Optional.of(alheio));
         doThrow(new AcessoNegadoException("Recurso não encontrado")).when(escopo).exigirPosse(99L);
 
@@ -90,7 +88,7 @@ class ExameServicePosseTest {
 
     @Test
     void responsavelLeExameDoProprioPet() {
-        Exame proprio = exameDoTutor(7L);
+        Exame proprio = exameDoResponsavel(7L);
         lenient().when(repository.findById(10L)).thenReturn(Optional.of(proprio));
         lenient().when(mapper.toResponse(proprio)).thenReturn(ExameResponse.builder().id(10L).build());
 
@@ -102,7 +100,7 @@ class ExameServicePosseTest {
 
     @Test
     void responsavelNaoRemoveExameDePetDeOutro() {
-        Exame alheio = exameDoTutor(99L);
+        Exame alheio = exameDoResponsavel(99L);
         lenient().when(repository.findById(10L)).thenReturn(Optional.of(alheio));
         doThrow(new AcessoNegadoException("Recurso não encontrado")).when(escopo).exigirPosse(99L);
 
@@ -116,7 +114,7 @@ class ExameServicePosseTest {
     void filtroPorPetRespeitaAPosse() {
         lenient().when(escopo.ehVeterinario()).thenReturn(false);
         lenient().when(escopo.idDoResponsavel()).thenReturn(7L);
-        Pet pet = Pet.builder().id(1L).responsavel(Responsavel.builder().id(99L).build()).build();
+        Pet pet = Pet.builder().id(1L).responsavelId(99L).build();
         lenient().when(petRepository.findById(1L)).thenReturn(Optional.of(pet));
         doThrow(new AcessoNegadoException("Recurso não encontrado")).when(escopo).exigirPosse(99L);
 

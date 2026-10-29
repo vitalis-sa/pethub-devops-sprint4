@@ -44,3 +44,5 @@ build/
 .github/
 # Configuração pessoal do Claude Code (não versionada)
 .claude/settings.local.json
+
+arquivos-locais/

@@ -3,6 +3,9 @@ package fiap.pethub.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+import java.time.Period;
+
 @Entity
 @Table(name = "TB_PET")
 @Getter
@@ -26,8 +29,8 @@ public class Pet {
     @Column(name = "raca")
     private String raca;
 
-    @Column(name = "idade")
-    private Integer idade;
+    @Column(name = "data_nascimento")
+    private LocalDate dataNascimento;
 
     @Column(name = "peso")
     private Double peso;
@@ -35,11 +38,24 @@ public class Pet {
     @Column(name = "genero")
     private String genero;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "responsavel_id", nullable = false)
-    private Responsavel responsavel;
+    /** Id do responsável no serviço .NET. Sem chave estrangeira: cada serviço é dono do seu banco. */
+    @Column(name = "responsavel_id", nullable = false)
+    private Long responsavelId;
+
+    /** Cópia do nome no momento do cadastro, para listar pets sem consultar o .NET a cada linha. */
+    @Column(name = "nome_responsavel", nullable = false, length = 150)
+    private String nomeResponsavel;
+
+    /** Caminho da foto no bucket (fotos/{petId}/...). Só o caminho: o arquivo fica no Cloud Storage. */
+    @Column(name = "foto_path")
+    private String fotoPath;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "veterinario_responsavel_id")
     private Veterinario veterinarioResponsavel;
+
+    /** A idade nunca é gravada: sai da data de nascimento, então não fica desatualizada. */
+    public Integer idadeEmAnos() {
+        return dataNascimento == null ? null : Period.between(dataNascimento, LocalDate.now()).getYears();
+    }
 }

@@ -10,6 +10,7 @@ import fiap.pethub.enums.StatusPedidoMedico;
 import fiap.pethub.enums.TipoLembrete;
 import fiap.pethub.enums.TipoPedidoMedico;
 import fiap.pethub.exception.ResourceNotFoundException;
+import fiap.pethub.messaging.LembreteSolicitado;
 import fiap.pethub.mapper.PedidoMedicoMapper;
 import fiap.pethub.repository.ConsultaRepository;
 import fiap.pethub.repository.PedidoMedicoRepository;
@@ -18,6 +19,7 @@ import fiap.pethub.security.EscopoDoUsuario;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,8 +38,9 @@ public class PedidoMedicoService {
     private final PetRepository petRepository;
     private final PedidoMedicoMapper mapper;
     private final EscopoDoUsuario escopo;
-    private final LembreteService lembreteService;
+    private final ApplicationEventPublisher eventos;
 
+    @Cacheable(value = "pedidos", key = "'lista-' + #petId + '-' + #status + '-' + #tipo + '-' + #pageable + '-' + @escopoDoUsuario.chaveDeCache()")
     public Page<PedidoMedicoResponse> findAll(Long petId, StatusPedidoMedico status, TipoPedidoMedico tipo, Pageable pageable) {
         if (petId != null) {
             exigirPosseDoPet(petId);
@@ -58,7 +61,7 @@ public class PedidoMedicoService {
     @Cacheable(value = "pedidos", key = "#id + '-' + @escopoDoUsuario.chaveDeCache()")
     public PedidoMedicoResponse findById(Long id) {
         PedidoMedico entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         return mapper.toResponse(entidade);
     }
 
@@ -75,7 +78,7 @@ public class PedidoMedicoService {
     @CacheEvict(value = "pedidos", allEntries = true)
     public PedidoMedicoResponse update(Long id, PedidoMedicoRequest request) {
         PedidoMedico entity = findEntityById(id);
-        escopo.exigirPosse(entity.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entity.getPet().getResponsavelId());
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));
     }
@@ -84,7 +87,7 @@ public class PedidoMedicoService {
     @CacheEvict(value = "pedidos", allEntries = true)
     public DeleteResponse delete(Long id) {
         PedidoMedico entidade = findEntityById(id);
-        escopo.exigirPosse(entidade.getPet().getResponsavel().getId());
+        escopo.exigirPosse(entidade.getPet().getResponsavelId());
         repository.delete(entidade);
         return DeleteResponse.of("Pedido médico", id);
     }
@@ -97,18 +100,17 @@ public class PedidoMedicoService {
         return entity;
     }
 
+    /** Sem data limite não há o que lembrar: o lembrete precisa de uma data. */
     private void notificarResponsavel(PedidoMedico saved) {
+        if (saved.getDataLimite() == null) {
+            return;
+        }
         Pet pet = saved.getPet();
         TipoLembrete tipo = saved.getTipo() == TipoPedidoMedico.EXAME ? TipoLembrete.EXAME : TipoLembrete.MEDICAMENTO;
-        lembreteService.criarLembrete(
-                pet.getResponsavel().getId(),
-                pet.getId(),
-                tipo,
-                saved.getDataLimite(),
-                saved.getDescricao() + (saved.getInstrucoes() != null ? " — " + saved.getInstrucoes() : ""),
-                saved.getId(),
-                "PedidoMedico"
-        );
+        String instrucoes = saved.getInstrucoes() == null ? "" : " — " + saved.getInstrucoes();
+        eventos.publishEvent(new LembreteSolicitado(
+                pet.getResponsavelId(), pet.getId(), tipo, saved.getDataLimite(),
+                saved.getDescricao() + instrucoes, saved.getId(), "PedidoMedico"));
     }
 
     private Consulta findConsulta(Long consultaId) {
@@ -130,7 +132,7 @@ public class PedidoMedicoService {
 
     /** Filtrar por um pet alheio nao pode revelar sequer que ele existe. */
     private void exigirPosseDoPet(Long petId) {
-        escopo.exigirPosse(findPet(petId).getResponsavel().getId());
+        escopo.exigirPosse(findPet(petId).getResponsavelId());
     }
 
     private PedidoMedico findEntityById(Long id) {
