@@ -295,60 +295,6 @@ prontuário, o responsável o consulta** — e também agenda consultas e cadast
 | IA (análise da consulta, resumo de exame) | gera | apenas lê a análise |
 | Alcance das listagens | todos os registros da clínica | somente os pets sob sua responsabilidade |
 
-A proteção acontece em duas camadas, e as duas importam:
-
-- **Por rota e método**, em [`SecurityConfig`](src/main/java/fiap/pethub/config/SecurityConfig.java):
-  quem não tem o perfil exigido recebe `403` antes de a requisição chegar ao controller. Manter as
-  regras num arquivo só permite ler de cima a baixo quem pode fazer o quê.
-- **Por posse do recurso**, em [`EscopoDoUsuario`](src/main/java/fiap/pethub/security/EscopoDoUsuario.java):
-  um `RESPONSAVEL` autenticado que peça o pet de outro responsável recebe `404`, não `403` — a API não
-  confirma nem nega a existência de um recurso alheio. As listagens são filtradas pelo responsável
-  do token, e a chave de cache inclui o escopo do usuário, para que um acerto de cache nunca
-  devolva a um responsável o dado carregado por outro.
-
-## Migrations (Flyway)
-
-O schema é versionado pelo Flyway, não gerado pelo Hibernate. As migrations ficam em
-`src/main/resources/db/migration` e rodam sozinhas no start da aplicação.
-
-| Arquivo | Conteúdo |
-|---|---|
-| `V1__schema_inicial.sql` | 10 sequences, 10 tabelas e 16 chaves estrangeiras — o schema do Java (inclui `tb_analise_consulta.exames` e `.sugestao`, antes das migrations V2 e V3, já incorporadas aqui). As tabelas de responsável, endereço, contato e lembrete são do .NET e **não** estão aqui; `tb_pet.responsavel_id` é uma coluna simples, sem chave estrangeira |
-
-Configuração relevante em `application.properties`:
-
-```properties
-spring.jpa.hibernate.ddl-auto=validate
-spring.flyway.enabled=true
-spring.flyway.baseline-on-migrate=true
-spring.flyway.baseline-version=0
-spring.datasource.hikari.maximum-pool-size=2
-```
-
-- `ddl-auto=validate` — o Hibernate deixa de criar e alterar tabela; ele apenas **confere** se as
-  entidades batem com o que o Flyway aplicou. Se divergirem, a aplicação não sobe, e é justamente
-  esse o ponto: a divergência aparece no boot, não em produção.
-- `baseline-on-migrate` com `baseline-version=0` — o schema Oracle é compartilhado com o .NET, que
-  mantém lá as tabelas de responsável, endereço, contato e lembrete. Sem isso, o Flyway veria um
-  schema "não vazio" sem histórico e recusaria rodar. Com a baseline na versão **0** ele adota essas
-  tabelas de fora e ainda aplica a V1 do Java. Não use `baseline-version=1`: o Flyway marcaria a V1
-  como já aplicada, pularia a migration e o Hibernate falharia com `missing table`.
-- `maximum-pool-size=2` — o pool da FIAP é limitado e o projeto o mantém no mínimo viável, mas
-  **1 não basta**: no boot o Flyway segura uma conexão para aplicar a migration e pede outra para
-  gravar o histórico. Com o pool em 1, ele espera os 30s do `connection-timeout` e a aplicação
-  morre sem subir.
-
-No start, o log mostra o Flyway trabalhando — é assim que se confirma que as migrations rodaram:
-
-```
-o.f.core.internal.command.DbValidate  : Successfully validated 1 migration
-o.f.core.internal.command.DbMigrate   : Current version of schema "RM566234": 1
-o.f.core.internal.command.DbMigrate   : Schema "RM566234" is up to date. No migration necessary.
-```
-
-**Para criar uma nova migration**, adicione um arquivo `V2__descricao_curta.sql` (hoje só existe a V1) na mesma pasta.
-Migration já aplicada nunca deve ser editada — o Flyway compara o checksum e falha se o conteúdo
-mudou. Corrija sempre com uma versão nova.
 
 ## Fluxos completos (não-CRUD)
 
@@ -561,14 +507,6 @@ Medicamento com agenda de doses (o .NET cria um lembrete por dose) e cancelament
 `referenciaTipo` + `referenciaId` identificam a origem, e o consumidor os usa para não criar o mesmo
 lembrete duas vezes numa reentrega: se a mensagem chega de novo, o lembrete é atualizado.
 
-**Limites conhecidos**
-
-- Se o RabbitMQ estiver fora do ar na hora, a consulta é gravada e o erro vai para o log: o lembrete
-  daquela consulta não é reenviado sozinho.
-- O job de reenvio (`@Scheduled`, 6h) só roda com a instância ligada. Com escala a zero, dispare o
-  reenvio por outro meio ou mantenha a instância ativa.
-- `nomeResponsavel` no pet é uma cópia gravada no cadastro; se o nome mudar no .NET, o pet antigo
-  continua com o nome anterior.
 
 ## Deploy (Google Cloud Run)
 
@@ -799,28 +737,3 @@ Cada grupo em detalhe:
 
 ![Swagger Unidades Veterinárias](docs/img/17-08-swagger-unidades-veterinarias.png)
 
-
-## Postman: fluxo para testar
-
-A coleção [`docs/PetHub_Sprint4.postman_collection.json`](docs/PetHub_Sprint4.postman_collection.json) percorre o
-fluxo de negócio inteiro, nos dois serviços, e dá para rodar com **Run collection**. Cada execução cria
-veterinário, responsável e CPF novos, então pode ser repetida. Os scripts guardam os tokens e os ids em
-variáveis da coleção (`javaUrl` e `dotnetUrl` já apontam para o ambiente no ar).
-
-| Pasta | O que mostra |
-|---|---|
-| 1. Veterinário (Java) | Registro, login e unidade; devolve o token JWT |
-| 2. Responsável (.NET) | Cadastro, login, endereço e contato |
-| 3. Pet | Veterinário cadastra o pet pelo CPF; responsável lista pelo gateway; URL assinada da foto |
-| 4. Consulta | Agendar pelo gateway, agenda ocupada (`409`), data no passado (`409`), queixas e remarcação |
-| 5. Atendimento com IA | Rascunho, aprovação, receita, resumo de exame e vacina com próxima dose |
-| 6. Lembretes no .NET | Lembretes e doses que chegaram pela fila |
-| 7. Segurança | `401`, `403` e `404` esperados |
-| 8. Limpeza | Apaga o pet com o histórico |
-
-Observações para quem testa:
-
-- o passo **5.1** chama o Groq de verdade e responde `503` se o serviço de IA não estiver configurado;
-- o passo **6.1** pode vir vazio nos primeiros segundos, enquanto a fila entrega; envie de novo;
-- as chamadas de arquivo devolvem só a URL assinada; o envio do arquivo ao bucket é feito pelo aplicativo;
-- as coleções `PetHub API` e `PetHub_Sprint3` em `docs/` são das sprints anteriores e não refletem o fluxo atual.
