@@ -1,0 +1,1484 @@
+{
+  "info": {
+    "name": "PetHub - Sprint 4 (fluxo completo)",
+    "description": "Fluxo de negócio do PetHub, na ordem em que o professor pode executar (Run collection).\n\nServiços: {{javaUrl}} (clínica: pets, consultas, IA) e {{dotnetUrl}} (responsável e lembretes).\nCada execução cria veterinário, responsável e CPF novos, então pode ser repetida. Os scripts guardam tokens e ids em variáveis da coleção.\n\n1 Veterinário → 2 Responsável → 3 Pet → 4 Consulta → 5 Atendimento com IA → 6 Lembretes → 7 Segurança → 8 Limpeza.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "javaUrl",
+      "value": "https://pethub-java.cloud.run"
+    },
+    {
+      "key": "dotnetUrl",
+      "value": "https://pethub-dotnet.cloud.run"
+    },
+    {
+      "key": "tokenVet",
+      "value": ""
+    },
+    {
+      "key": "tokenResp",
+      "value": ""
+    },
+    {
+      "key": "vetId",
+      "value": ""
+    },
+    {
+      "key": "responsavelId",
+      "value": ""
+    },
+    {
+      "key": "unidadeId",
+      "value": ""
+    },
+    {
+      "key": "petId",
+      "value": ""
+    },
+    {
+      "key": "consultaId",
+      "value": ""
+    },
+    {
+      "key": "exameId",
+      "value": ""
+    },
+    {
+      "key": "vacinaId",
+      "value": ""
+    },
+    {
+      "key": "cpf",
+      "value": ""
+    },
+    {
+      "key": "emailVet",
+      "value": ""
+    },
+    {
+      "key": "emailResp",
+      "value": ""
+    },
+    {
+      "key": "crmv",
+      "value": ""
+    },
+    {
+      "key": "dataConsulta",
+      "value": ""
+    },
+    {
+      "key": "dataRemarcada",
+      "value": ""
+    },
+    {
+      "key": "sufixo",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Veterinário (Java)",
+      "item": [
+        {
+          "name": "1.1 Registrar veterinário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/auth/registrar/veterinario"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Dra. Teste Postman\",\n  \"crmv\": \"{{crmv}}\",\n  \"especialidade\": \"Clínica geral\",\n  \"email\": \"{{emailVet}}\",\n  \"senha\": \"senha123\",\n  \"ativo\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Cadastro público do veterinário. Já devolve o token JWT; o script guarda em {{tokenVet}}."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const s = Date.now().toString();",
+                  "pm.collectionVariables.set('sufixo', s);",
+                  "pm.collectionVariables.set('emailVet', 'vet.' + s + '@pethub.teste');",
+                  "pm.collectionVariables.set('crmv', 'SP-' + s.slice(-6));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('tokenVet', corpo.token);",
+                  "pm.collectionVariables.set('vetId', corpo.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Login do veterinário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/auth/login"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailVet}}\",\n  \"senha\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Login no Java. A senha errada devolve 401 'Credenciais inválidas'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('tokenVet', corpo.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Criar unidade veterinária",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/unidades"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"veterinarioId\": {{vetId}},\n  \"nome\": \"PetHub Paulista\",\n  \"logradouro\": \"Av. Paulista\",\n  \"numero\": \"1106\",\n  \"bairro\": \"Bela Vista\",\n  \"cidade\": \"São Paulo\",\n  \"estado\": \"SP\",\n  \"cep\": \"01311000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('unidadeId', corpo.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Responsável (.NET)",
+      "item": [
+        {
+          "name": "2.1 Cadastrar responsável",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/responsavel/cadastro"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Ana Responsável Teste\",\n  \"cpf\": \"{{cpf}}\",\n  \"email\": \"{{emailResp}}\",\n  \"senha\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "O .NET cuida do responsável. O cadastro já devolve o token do responsável."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const s = Date.now().toString();",
+                  "pm.collectionVariables.set('emailResp', 'resp.' + s + '@pethub.teste');",
+                  "pm.collectionVariables.set('cpf', s.slice(-11));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('tokenResp', corpo.token);",
+                  "pm.collectionVariables.set('responsavelId', corpo.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Login do responsável",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/responsavel/login"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailResp}}\",\n  \"senha\": \"senha123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('tokenResp', corpo.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Adicionar endereço",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/responsavel/{{responsavelId}}/enderecos"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"logradouro\": \"Rua Augusta\",\n  \"numero\": \"500\",\n  \"bairro\": \"Consolação\",\n  \"cidade\": \"São Paulo\",\n  \"estado\": \"SP\",\n  \"cep\": \"01304000\",\n  \"principal\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 Adicionar contato",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/responsavel/{{responsavelId}}/contatos"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"CELULAR\",\n  \"telefone\": \"11999998888\",\n  \"principal\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Pet",
+      "item": [
+        {
+          "name": "3.1 Veterinário cadastra o pet para o CPF do responsável",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/pets"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Mel\",\n  \"especie\": \"Cachorro\",\n  \"raca\": \"SRD\",\n  \"dataNascimento\": \"2022-05-10\",\n  \"peso\": 12.5,\n  \"genero\": \"Fêmea\",\n  \"responsavelCpf\": \"{{cpf}}\",\n  \"veterinarioResponsavelId\": {{vetId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "O Java pergunta ao .NET quem é o dono desse CPF, usando o JWT de serviço (X-Service-Authorization)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('petId', corpo.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Responsável lista os próprios pets (pelo gateway do .NET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/pets"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "O responsável nunca chama o Java direto: o gateway do .NET valida o token dele e repassa com o JWT de serviço."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 Pedir URL assinada para a foto do pet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/pets/{{petId}}/foto/envio"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentType\": \"image/png\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Devolve a URL assinada do bucket. O app faz o PUT da imagem direto nessa URL e depois confirma com PUT /api/pets/{id}/foto."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Consulta (lembrete na fila e e-mail)",
+      "item": [
+        {
+          "name": "4.1 Responsável agenda a consulta (pelo gateway)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/consultas"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataHora\": \"{{dataConsulta}}\",\n  \"observacoes\": \"Primeira consulta\",\n  \"status\": \"AGENDADA\",\n  \"petId\": {{petId}},\n  \"veterinarioId\": {{vetId}},\n  \"unidadeId\": {{unidadeId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Depois do commit o Java publica o lembrete no RabbitMQ (o .NET cria) e envia o e-mail de confirmação pela Brevo."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date(Date.now() + 3 * 86400000);",
+                  "d.setUTCHours(13 + Math.floor(Math.random() * 6), [0, 15, 30, 45][Math.floor(Math.random() * 4)], 0, 0);",
+                  "pm.collectionVariables.set('dataConsulta', d.toISOString().slice(0, 19));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('consultaId', corpo.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Mesmo horário de novo: agenda ocupada (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/consultas"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataHora\": \"{{dataConsulta}}\",\n  \"status\": \"AGENDADA\",\n  \"petId\": {{petId}},\n  \"veterinarioId\": {{vetId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Regra de negócio: o mesmo veterinário não atende dois pets no mesmo horário."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (409)', function () { pm.expect([409]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 Data no passado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/consultas"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataHora\": \"2020-01-10T10:00:00\",\n  \"status\": \"AGENDADA\",\n  \"petId\": {{petId}},\n  \"veterinarioId\": {{vetId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Regra de negócio: não se agenda para uma data que já passou."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (409)', function () { pm.expect([409]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.4 Responsável registra as queixas",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/consultas/{{consultaId}}/queixas"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"queixas\": \"Está sem apetite e vomitou duas vezes ontem à noite.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.5 Responsável remarca",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/consultas/{{consultaId}}/remarcar"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataHora\": \"{{dataRemarcada}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Publica o lembrete de novo; o .NET atualiza o lembrete em vez de criar outro."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date(Date.now() + 5 * 86400000);",
+                  "d.setUTCHours(13 + Math.floor(Math.random() * 6), [0, 15, 30, 45][Math.floor(Math.random() * 4)], 0, 0);",
+                  "pm.collectionVariables.set('dataRemarcada', d.toISOString().slice(0, 19));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.6 Veterinário vê as consultas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{javaUrl}}/api/consultas"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Atendimento com IA (Groq)",
+      "item": [
+        {
+          "name": "5.1 Gerar rascunho da análise (não grava nada)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/consultas/{{consultaId}}/analise-ia"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transcricao\": \"Veterinário: Bom dia, o que a Mel apresentou? Responsável: Ela está sem apetite há dois dias e vomitou ontem à noite duas vezes. Veterinário: Alguma diarreia? Responsável: Não, as fezes estão normais. Veterinário: Peso 12,5 quilos, temperatura 39,6 graus, mucosas normocoradas, leve desidratação. Vou prescrever ondansetrona 4 miligramas, um comprimido a cada 12 horas por 3 dias, e dipirona 500 miligramas gotas a cada 8 horas por 2 dias. Também peço um hemograma completo e uma ultrassonografia abdominal. Retorno em uma semana.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "O app converte a voz em texto; o Java manda só o texto ao Groq. Devolve anamnese, medicamentos, exames e sugestão."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 503)', function () { pm.expect([200, 503]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 Aprovar a análise (grava, reflete no prontuário e fecha a consulta)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/consultas/{{consultaId}}/analise-ia"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"anamnese\": \"Cadela de 12,5 kg com inapetência há dois dias e dois episódios de vômito. Temperatura 39,6 °C, leve desidratação.\",\n  \"medicamentos\": [\n    {\n      \"nome\": \"Ondansetrona 4 mg, comprimido\",\n      \"quantidade\": \"1 caixa\",\n      \"posologia\": \"1 comprimido por via oral a cada 12 horas por 3 dias\",\n      \"observacoes\": \"Dar junto com a comida\",\n      \"vezesPorDia\": 2,\n      \"duracaoDias\": 3\n    },\n    {\n      \"nome\": \"Dipirona 500 mg/mL, gotas\",\n      \"quantidade\": \"1 frasco\",\n      \"posologia\": \"10 gotas por via oral a cada 8 horas por 2 dias\",\n      \"observacoes\": \"\",\n      \"vezesPorDia\": 3,\n      \"duracaoDias\": 2\n    }\n  ],\n  \"exames\": [\n    {\n      \"nome\": \"Hemograma completo\",\n      \"observacoes\": \"Jejum de 8 horas\"\n    },\n    {\n      \"nome\": \"Ultrassonografia abdominal\",\n      \"observacoes\": \"\"\n    }\n  ],\n  \"sugestao\": \"Retorno em 7 dias para reavaliação.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Cada medicamento com vezesPorDia e duracaoDias vira doses; o .NET cria um lembrete por dose. A consulta passa a REALIZADA."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 Veterinário lê a receita",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{javaUrl}}/api/consultas/{{consultaId}}/receita"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 Responsável lê a receita (pelo gateway)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/consultas/{{consultaId}}/receita"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "O responsável só vê a receita depois da aprovação, e só a dos próprios pets."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.5 Exames pedidos nessa consulta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{javaUrl}}/api/exames?consultaId={{consultaId}}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Os exames aprovados na análise já aparecem aqui, ainda sem resultado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });",
+                  "const c = pm.response.json().content || [];",
+                  "if (c.length) { pm.collectionVariables.set('exameId', c[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.6 Resumir o texto de um exame com IA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/exames/{{exameId}}/resumo-ia"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"texto\": \"Hemograma completo. Hemácias 6,2 milhões/mm3 (ref. 5,5 a 8,5). Leucócitos 18.500/mm3 (ref. 6.000 a 17.000). Plaquetas 310.000/mm3.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 503)', function () { pm.expect([200, 503]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.7 Pedir URL assinada do PDF do exame",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/exames/{{exameId}}/arquivo/envio"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentType\": \"application/pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.8 Registrar vacina com próxima dose (gera lembrete)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/vacinas-tratamentos"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"VACINA\",\n  \"nome\": \"V10\",\n  \"dataAplicacao\": \"2026-10-31\",\n  \"proximaDose\": \"2027-10-31\",\n  \"dose\": \"1 mL\",\n  \"observacoes\": \"Reforço anual\",\n  \"petId\": {{petId}},\n  \"veterinarioId\": {{vetId}},\n  \"consultaId\": {{consultaId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 201)', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "const corpo = pm.response.json();",
+                  "pm.collectionVariables.set('vacinaId', corpo.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Lembretes no .NET (chegam pela fila)",
+      "item": [
+        {
+          "name": "6.1 Lembretes do responsável",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/lembretes/responsavel/{{responsavelId}}?tamanho=50"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "A lista vem paginada, com os lembretes em 'itens'. Se vier vazia, a fila ainda está entregando: repita em alguns segundos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });",
+                  "const itens = pm.response.json().itens || [];",
+                  "pm.test('Chegou ao menos um lembrete (se vier vazio, espere alguns segundos e envie de novo)', function () { pm.expect(itens.length).to.be.above(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Próximas doses de medicamento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/lembretes/responsavel/{{responsavelId}}/doses-futuras"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Uma dose por horário, vindas da receita aprovada no passo 5.2."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200)', function () { pm.expect([200]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 Histórico das mensagens da fila (MongoDB)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/lembretes/responsavel/{{responsavelId}}/historico"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Responde 503 quando o MongoDB não está configurado; é opcional."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 503)', function () { pm.expect([200, 503]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Segurança (respostas de erro esperadas)",
+      "item": [
+        {
+          "name": "7.1 Sem token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{javaUrl}}/api/pets"
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (401)', function () { pm.expect([401]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.2 Responsável tenta a IA (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/consultas/{{consultaId}}/analise-ia"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transcricao\": \"teste\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "A análise é exclusiva do veterinário."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (403)', function () { pm.expect([403]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.3 Responsável pede um pet que não é dele (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{dotnetUrl}}/api/clinico/pets/999999999"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenResp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "A API não confirma nem nega a existência de recurso alheio: sempre 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (404)', function () { pm.expect([404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.4 Token de serviço inválido no Java (401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Service-Authorization",
+                "value": "Bearer token-invalido"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/pets"
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "O Java só aceita o JWT de serviço assinado com o segredo compartilhado, com emissor e público corretos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (401)', function () { pm.expect([401]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.5 Senha errada no login (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{javaUrl}}/api/auth/login"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailVet}}\",\n  \"senha\": \"senha-errada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (401)', function () { pm.expect([401]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Limpeza (opcional)",
+      "item": [
+        {
+          "name": "8.1 Apagar o pet com o histórico",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{javaUrl}}/api/pets/{{petId}}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenVet}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Apaga diagnósticos, exames, pedidos, vacinas, e-mails, análises e consultas do pet, na ordem certa."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status esperado (200, 204)', function () { pm.expect([200, 204]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

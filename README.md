@@ -1,16 +1,23 @@
-# PetHub API
+# PetHub API (serviço clínico, Java)
 
 Uma solução completa para o cuidado veterinário, conectando pets, responsáveis e clínicas em uma jornada inteligente: do agendamento de consultas ao controle de vacinas, exames, diagnósticos e lembretes, tudo em um só lugar.
 
-Projeto entregue para a disciplina **Java Advanced** (FIAP, Challenge 2026 — 2º semestre,
-Sprint 3), cobrindo a API REST do domínio veterinário do PetHub: versionamento de schema com Flyway e autenticação/autorização com Spring Security.
+Projeto entregue para a disciplina **Java Advanced** (FIAP, Challenge 2026, 2º semestre, **Sprint 4**).
+Este repositório é o **serviço clínico** do PetHub, um dos dois microsserviços da solução: o Java cuida do
+veterinário, dos pets, das consultas, do prontuário e da IA; o serviço **.NET (Vitalis)** cuida do responsável
+e dos lembretes. Veja a [arquitetura de microsserviços](#arquitetura-de-microsserviços).
 
 ## Entrega
 
 | Artefato | Link |
 |---|---|
-| Repositório GitHub | https://github.com/vitalis-sa/pethub-java |
-| Vídeo de demonstração | https://www.youtube.com/watch?v=iKAm3RBc3nI |
+| Repositório GitHub (Java) | https://github.com/vitalis-sa/pethub-java |
+| Vídeo de apresentação (Sprint 4) | https://youtu.be/fIsw9z4U3s8 |
+| Aplicação online: serviço Java (clínico) | https://pethub-java.cloud.run |
+| Swagger do Java no ar | https://pethub-java.cloud.run/swagger-ui.html |
+| Aplicação online: serviço .NET (Vitalis, responsável) | https://pethub-dotnet.cloud.run |
+| Swagger do .NET no ar | https://pethub-dotnet.cloud.run/swagger |
+| Coleção Postman para testar o fluxo | [`docs/PetHub_Sprint4.postman_collection.json`](docs/PetHub_Sprint4.postman_collection.json) |
 
 ## Grupo
 
@@ -21,6 +28,17 @@ Sprint 3), cobrindo a API REST do domínio veterinário do PetHub: versionamento
 | João Guilherme Carvalho Novaes | RM566234 |
 | Pedro Chasci Puga | RM565154 |
 | Lucas Figueiredo Vieira | RM561342 |
+
+### Colaboração por disciplina
+
+| Disciplina | Quem trabalhou |
+|---|---|
+| Java | Ana Flávia, João Guilherme e Lucas |
+| Database | Lucas |
+| IoT | Ana Flávia |
+| .NET | Pedro e Ana Flávia |
+| Mobile | Gustavo, Ana Flávia e João |
+| QA | Gustavo, Pedro e Lucas |
 
 ## Tecnologias
 
@@ -45,6 +63,73 @@ Sprint 3), cobrindo a API REST do domínio veterinário do PetHub: versionamento
 | Google Cloud Storage | Exames (PDF) em `exames/` e fotos de pets em `fotos/` no bucket `vitalis-docs`: o Java só assina URLs temporárias, o app envia/baixa direto |
 | Groq (API REST, compatível com a da OpenAI) | Anamnese, receita e sugestão a partir da transcrição da consulta; resumo do texto de exames |
 | RestClient | Cliente HTTP do Spring usado para Groq, Brevo e para o serviço .NET de responsáveis |
+
+## Arquitetura de microsserviços
+
+A solução deixou de ser um serviço único. Agora são **dois microsserviços**, cada um dono do seu domínio e
+do seu código, mais o aplicativo móvel que consome os dois:
+
+| Serviço | Tecnologia | É dono de | Onde roda |
+|---|---|---|---|
+| **pethub-java** (este repositório) | Java 21, Spring Boot | Veterinário, pets, consultas, prontuário (diagnósticos, exames, pedidos médicos, vacinas e tratamentos), unidades e IA | Cloud Run: https://pethub-java.cloud.run |
+| **Vitalis** | .NET 10 | Responsável (cadastro e login), endereços, contatos e lembretes | Cloud Run: https://pethub-dotnet.cloud.run |
+| **Aplicativo** | Expo / React Native | Interface do veterinário e do responsável | Fala com os dois serviços |
+
+Cada serviço cria **só as próprias tabelas**, então a ordem de subida não importa e nenhuma chave estrangeira
+cruza os dois domínios.
+
+```mermaid
+flowchart LR
+    App[Aplicativo Expo]
+    Net[Vitalis .NET<br/>responsável e lembretes]
+    Java[PetHub Java<br/>veterinário e clínica]
+    Rabbit[(RabbitMQ<br/>CloudAMQP)]
+    Oracle[(Oracle FIAP)]
+    Bucket[(Cloud Storage)]
+    Groq[Groq IA]
+    Brevo[Brevo e-mail]
+
+    App -->|login e cadastro do responsável| Net
+    App -->|login do veterinário| Java
+    App -->|responsável, pelo gateway /api/clinico| Net
+    Net -->|JWT de serviço| Java
+    Java -->|JWT de serviço: dados do responsável| Net
+    Java -->|publica lembretes| Rabbit
+    Rabbit -->|consome| Net
+    Java --> Oracle
+    Net --> Oracle
+    Java -->|URLs assinadas| Bucket
+    App -->|envia e baixa arquivos| Bucket
+    Java --> Groq
+    Java --> Brevo
+```
+
+### Como os serviços conversam
+
+| Fluxo | Mecanismo | Detalhe |
+|---|---|---|
+| Autenticação entre serviços | JWT HS256 de 60 s no cabeçalho `X-Service-Authorization` | Emissor e público próprios de cada lado; o mesmo segredo nos dois (`SERVICE_JWT_SECRET` no Java, `ServicoAuth__Segredo` no .NET) |
+| Responsável usa a parte clínica | Gateway `/api/clinico/**` do .NET | O .NET valida o token do responsável e repassa ao Java dizendo de quem é o pedido |
+| Dados do responsável (nome, e-mail, CPF) | Java chama o .NET | Para criar pet e para enviar o e-mail de confirmação |
+| Lembretes | Fila RabbitMQ | O Java publica, só depois do commit; o .NET consome e cria o lembrete |
+| E-mail de confirmação da consulta | Brevo (HTTP) | Direto, sem fila; falha fica registrada e é reenviada às 6h |
+
+### Integração com as outras disciplinas
+
+| Disciplina | Quem | Onde aparece |
+|---|---|---|
+| Java | Ana Flávia, João Guilherme, Lucas | Este repositório: API REST, segurança, mensageria, e-mail, IA e armazenamento |
+| Database | Lucas | Oracle da FIAP, migration `V1__schema_inicial.sql` (10 tabelas, 10 sequences, 16 chaves estrangeiras) |
+| .NET | Pedro, Ana Flávia | Vitalis: responsável, endereço, contato, lembrete, consumidor da fila e gateway para o Java |
+| Mobile | Gustavo, Ana Flávia, João | Aplicativo Expo que consome os dois serviços |
+| QA | Gustavo, Pedro, Lucas | Testes automatizados deste repositório (`src/test`) e a [coleção Postman](#postman-fluxo-para-testar) |
+| IoT | Ana Flávia | **(preencher: como o IoT se conecta ao PetHub)** |
+
+## Interface
+
+Este repositório é só a **API**: não há telas servidas pelo Java. As telas do PetHub agora são refletidas no
+**aplicativo móvel**, como o [vídeo](https://youtu.be/fIsw9z4U3s8) explica. O veterinário entra pelo Java; o
+responsável entra pelo .NET e usa a parte clínica pelo gateway.
 
 ## Instalação
 
@@ -124,18 +209,7 @@ O cadastro e o login de responsáveis, assim como os lembretes, **pertencem ao .
 apenas o `responsavelId` dentro do pet.
 
 Em um banco limpo não existe usuário pré-cadastrado: crie o veterinário pela API (veja
-[Pela API](#pela-api)) ou carregue os
-[dados de demonstração](#carregar-os-dados-de-demonstração-opcional).
-
-### Carregar os dados de demonstração (opcional)
-
-Em vez de cadastrar tudo na mão, é possível carregar um cenário pronto: uma clínica, um veterinário,
-dois pets de responsáveis distintos, uma consulta já realizada e outra agendada. Cadastre antes os
-dois responsáveis no .NET (ids 1 e 2) e rode `docs/seed_demo_video.sql` no schema da aplicação. A
-conta criada é `vet_video@pethub.com` (veterinário, senha `123456`).
-
-Esse seed é material de demonstração e por isso **não** é uma migration do Flyway: dado de
-exemplo não deve viajar junto com o schema para todo ambiente que rodar o projeto.
+[Pela API](#pela-api)) ou rode a [coleção Postman](#postman-fluxo-para-testar), que cria tudo o que o fluxo precisa.
 
 ### Pela API
 
@@ -301,29 +375,37 @@ responsabilidade:
 
 Consulta lançada como `REALIZADA` ou `CANCELADA` não gera lembrete nem e-mail.
 
-### 2. Registro do prontuário e fechamento da consulta
+### 2. Atendimento com IA e fechamento da consulta
 
-[`ProntuarioService.registrar`](src/main/java/fiap/pethub/service/ProntuarioService.java) fecha
-uma consulta em **três escritas que só fazem sentido juntas**, dentro de uma única transação:
+O veterinário atende, o aplicativo transcreve a conversa e manda **só o texto** ao Java. O fluxo tem três
+passos, e nada é gravado antes da aprovação:
 
-1. grava o diagnóstico;
-2. emite o pedido médico, se o veterinário pediu exame ou medicamento — com prazo padrão de 7 dias;
-3. dá a consulta por `REALIZADA`.
+| Passo | Endpoint | O que acontece |
+|---|---|---|
+| 1. Rascunho | `POST /api/consultas/{id}/analise-ia` | `AnaliseConsultaService.gerarRascunho` chama o Groq e devolve anamnese, medicamentos, exames e sugestão. Consulta cancelada é recusada (`409`) |
+| 2. Aprovação | `PUT /api/consultas/{id}/analise-ia` | `AnaliseConsultaService.aprovar` grava a análise, `ProntuarioDaConsulta.refletir` leva medicamentos para Tratamentos e exames para Exames, e a consulta passa a `REALIZADA` |
+| 3. Receita | `GET /api/consultas/{id}/receita` | Veterinário e responsável dono do pet leem a receita aprovada |
 
-Ou as três entram, ou nenhuma entra. Antes disso há uma guarda de idempotência: se a consulta já
-está realizada ou já tem diagnóstico, a operação é recusada com `409`. Sem ela, um F5 depois de
-salvar empilharia um segundo diagnóstico na mesma consulta.
+Regras do fluxo:
+
+- salvar de novo não duplica: itens com o mesmo nome são atualizados;
+- medicamento tirado da receita sai de Tratamentos e as doses pendentes dele são canceladas no .NET;
+- cada medicamento com `vezesPorDia` e `duracaoDias` gera a agenda de doses, e o .NET cria um lembrete por dose;
+- consulta já realizada ou cancelada não aceita nova análise;
+- a chamada ao modelo não segura transação do banco (o pool tem só 2 conexões).
 
 ### 3. Lembretes automáticos (pelo .NET)
 
-O Java só **produz** a mensagem; quem cria o lembrete é o .NET, ao consumir a fila. Três situações
-publicam, sempre depois de gravar:
+O Java só **produz** a mensagem; quem cria o lembrete é o .NET, ao consumir a fila. Estas situações publicam,
+sempre depois de gravar:
 
 | Origem | Tipo do lembrete | Data |
 |---|---|---|
-| Consulta agendada | `CONSULTA` | dia da consulta |
+| Consulta agendada ou remarcada | `CONSULTA` | dia da consulta |
 | Vacina ou tratamento com `proximaDose` | `VACINA` | `proximaDose` |
 | Pedido médico com `dataLimite` | `EXAME` ou `MEDICAMENTO`, conforme o pedido | `dataLimite` |
+| Receita aprovada com `vezesPorDia` e `duracaoDias` | `MEDICAMENTO` (uma dose por horário) | a partir do horário da aprovação |
+| Medicamento removido da receita | cancelamento das doses ainda não liberadas | sem data |
 
 Detalhes do contrato em [Integração com o serviço .NET](#integração-com-o-serviço-net).
 
@@ -446,21 +528,36 @@ nenhuma chave estrangeira cruza os bancos.
 | Lembrete | Java → fila → .NET | mensagem JSON no RabbitMQ |
 | Exclusão de responsável | .NET → Java | `DELETE /api/pets/responsavel/{id}` com JWT de serviço cujo `sub` é o id; o .NET só apaga o responsável se o Java confirmar |
 
-**Mensagem do lembrete** — exchange `pethub.lembretes.exchange` (direct, durável), routing key
+**Mensagem do lembrete**: exchange `pethub.lembretes.exchange` (direct, durável), routing key
 `lembrete.criar`, fila `pethub.lembretes.queue` (durável). O corpo tem os campos do `CriarLembreteDto`
-do .NET:
+do .NET. Lembrete de um dia só (consulta, vacina, exame):
 
 ```json
 {
   "responsavelId": 7, "petId": 5, "tipo": "CONSULTA", "dataAgendada": "2026-11-01",
-  "mensagem": "Consulta agendada para Rex em 2026-11-01T14:30",
+  "mensagem": "Consulta agendada para Rex em 01/11/2026 às 14:30",
   "referenciaId": 100, "referenciaTipo": "Consulta"
 }
 ```
 
-`tipo` vai como texto (`CONSULTA`, `VACINA`, `EXAME`, `MEDICAMENTO`); o .NET precisa deserializar enum
-por nome. `referenciaTipo` + `referenciaId` identificam a origem, e o consumidor deve usá-los para não
-criar o mesmo lembrete duas vezes numa reentrega.
+Medicamento com agenda de doses (o .NET cria um lembrete por dose) e cancelamento de doses:
+
+```json
+{
+  "responsavelId": 7, "petId": 5, "tipo": "MEDICAMENTO", "dataAgendada": "2026-11-01",
+  "mensagem": "Ondansetrona 4 mg, comprimido", "referenciaId": 31, "referenciaTipo": "VacinaTratamento",
+  "vezesPorDia": 2, "duracaoDias": 3, "inicio": "2026-11-01T09:00:00"
+}
+```
+
+```json
+{ "responsavelId": 7, "petId": 5, "tipo": "MEDICAMENTO", "mensagem": "Tratamento removido",
+  "referenciaId": 31, "referenciaTipo": "VacinaTratamento", "cancelar": true }
+```
+
+`tipo` vai como texto (`CONSULTA`, `VACINA`, `EXAME`, `MEDICAMENTO`); o .NET deserializa enum por nome.
+`referenciaTipo` + `referenciaId` identificam a origem, e o consumidor os usa para não criar o mesmo
+lembrete duas vezes numa reentrega: se a mensagem chega de novo, o lembrete é atualizado.
 
 **Limites conhecidos**
 
@@ -470,7 +567,32 @@ criar o mesmo lembrete duas vezes numa reentrega.
   reenvio por outro meio ou mantenha a instância ativa.
 - `nomeResponsavel` no pet é uma cópia gravada no cadastro; se o nome mudar no .NET, o pet antigo
   continua com o nome anterior.
-- Excluir um responsável no .NET não apaga os pets dele aqui.
+
+## Deploy (Google Cloud Run)
+
+O Java roda no **Cloud Run** (projeto `vitalis-pethub`, região `southamerica-east1`), ligado ao GitHub: cada
+push na `main` dispara um build com o `Dockerfile` da raiz e publica uma nova revisão.
+
+| Item | Valor |
+|---|---|
+| URL do serviço | https://pethub-java.cloud.run |
+| Imagem | `Dockerfile` da raiz (copia `pom.xml` e `lombok.config`, empacota o jar e roda com `java -jar`) |
+| Banco | Oracle da FIAP; no primeiro deploy o schema precisa estar limpo para o Flyway aplicar a `V1` |
+| Arquivos | Bucket `vitalis-docs` (Cloud Storage) |
+| Fila | RabbitMQ no CloudAMQP |
+
+Variáveis de ambiente do serviço (os valores ficam nas configurações do Cloud Run, nunca no repositório):
+`DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `SERVICE_JWT_SECRET`, `RESPONSAVEIS_URL`, `RABBIT_HOST`, `RABBIT_PORT`,
+`RABBIT_USER`, `RABBIT_PASSWORD`, `RABBIT_VHOST`, `RABBIT_SSL`, `BREVO_API_KEY`, `BREVO_REMETENTE_EMAIL`,
+`GROQ_API_KEY`, `GCS_BUCKET` e `GCP_PROJECT_ID`.
+
+Para o bucket funcionar em produção:
+
+1. A conta de serviço do Cloud Run precisa de acesso ao bucket e do papel **Service Account Token Creator** nela
+   mesma, para assinar as URLs temporárias (a API *IAM Service Account Credentials* precisa estar ativada).
+2. O bucket precisa de **CORS** liberando `PUT` e `GET` e o cabeçalho `Content-Type`, para o app web enviar direto.
+
+`SERVICE_JWT_SECRET` deve ter o **mesmo valor** do `ServicoAuth__Segredo` do .NET.
 
 ## Estrutura do Projeto
 
@@ -558,12 +680,12 @@ fiap.pethub
 ├── ia/                          → Groq: prompts, cliente HTTP e serviços de IA
 ├── messaging/                   → Produtor RabbitMQ (fila de lembretes)
 ├── email/                       → Confirmação por e-mail (Brevo) e reenvio diário
-├── integracao/                  → Cliente do serviço .NET de responsáveis
+├── integracao/                  → Cliente do serviço .NET de responsáveis e JWT de serviço
+├── armazenamento/               → URLs assinadas do Cloud Storage (ou disco, em modo local)
 │
 ├── service/                     → Lógica de negócio
 │   ├── AuthService.java
 │   ├── ConsultaService.java     → Agendamento e suas guardas de agenda
-│   ├── ProntuarioService.java   → Fecha a consulta numa transação só
 │   ├── RemocaoEmCascata.java    → Remoção coerente dos dependentes
 │   ├── PetService.java
 │   └── ...
@@ -577,6 +699,18 @@ fiap.pethub
 
 ## Requisitos Técnicos Atendidos
 
+### Sprint 4
+
+| Requisito do PDF | Como é atendido | Onde ver |
+|---|---|---|
+| Aplicação rodando online (deploy) | Java e .NET no Cloud Run | [Entrega](#entrega) e [Deploy](#deploy-google-cloud-run) |
+| Principais fluxos do sistema | Agendamento, atendimento com IA, lembretes, e-mail e arquivos | [Fluxos completos](#fluxos-completos-não-crud) e a [coleção Postman](#postman-fluxo-para-testar) |
+| Conceitos da disciplina no app criado | Segurança entre serviços, mensageria, e-mail, integração com IA, armazenamento, cache e Flyway | Seções do próprio README |
+| Narrativa e decisões de design | Microsserviços por domínio, fila para o que cruza serviços, e-mail direto com reenvio | [Arquitetura de microsserviços](#arquitetura-de-microsserviços) |
+| Integração multidisciplinar | Database, .NET, Mobile, QA e IoT | [Integração com as outras disciplinas](#integração-com-as-outras-disciplinas) |
+| Todos os membros no vídeo | Vídeo de apresentação | https://youtu.be/fIsw9z4U3s8 |
+| Repositório com README completo, link da aplicação e vídeo | Este arquivo | [Entrega](#entrega) |
+
 ### Sprint 3
 
 | Requisito | Status | Evidência |
@@ -584,7 +718,7 @@ fiap.pethub
 | Flyway para versionamento do banco | ✅ | `V1__schema_inicial.sql` com 10 tabelas, 10 sequences e 16 FKs; `ddl-auto=validate` |
 | Spring Security — dois tipos de usuário | ✅ | Perfis `VETERINARIO` (JWT, senha em BCrypt) e `RESPONSAVEL` (credencial de serviço do .NET) |
 | Spring Security — rotas protegidas por perfil | ✅ | `SecurityConfig` por rota e método, mais posse por recurso em `EscopoDoUsuario` |
-| Dois fluxos completos além do CRUD | ✅ | [Agendamento com validação de agenda](#1-agendamento-de-consulta-com-validação-de-agenda) (`ConsultaService`) e [fechamento transacional do prontuário](#2-registro-do-prontuário-e-fechamento-da-consulta) (`ProntuarioService`) e lembretes automáticos por mensageria |
+| Dois fluxos completos além do CRUD | ✅ | [Agendamento com validação de agenda](#1-agendamento-de-consulta-com-validação-de-agenda) (`ConsultaService`) e [atendimento com IA e fechamento da consulta](#2-atendimento-com-ia-e-fechamento-da-consulta) (`AnaliseConsultaService`), mais lembretes automáticos por mensageria |
 | Validações nos dados de entrada | ✅ | Bean Validation nos DTOs (erro 400 por campo) e regras de negócio em serviço (erro 409) |
 
 ### Sprints anteriores
@@ -604,10 +738,6 @@ fiap.pethub
 
 Documentação interativa em [`/swagger-ui.html`](http://localhost:8080/swagger-ui.html),
 gerada pelo Springdoc a partir das anotações `@Operation` e `@ApiResponses` dos controllers.
-
-**Visão geral — os 12 grupos e todos os endpoints numa página só**
-
-![Swagger UI completo](docs/img/16-swagger-visao-geral.png)
 
 Cada grupo em detalhe:
 
@@ -639,10 +769,6 @@ Cada grupo em detalhe:
 
 ![Swagger Vacinas e Tratamentos](docs/img/17-12-swagger-vacinas-e-tratamentos.png)
 
-**Lembretes**
-
-![Swagger Lembretes](docs/img/17-02-swagger-lembretes.png)
-
 **Veterinários**
 
 ![Swagger Veterinários](docs/img/17-03-swagger-veterinarios.png)
@@ -651,65 +777,28 @@ Cada grupo em detalhe:
 
 ![Swagger Unidades Veterinárias](docs/img/17-08-swagger-unidades-veterinarias.png)
 
-**Responsáveis** — inclui contatos e endereços aninhados
 
-![Swagger Responsáveis](docs/img/17-06-swagger-responsaveis.png)
+## Postman: fluxo para testar
 
+A coleção [`docs/PetHub_Sprint4.postman_collection.json`](docs/PetHub_Sprint4.postman_collection.json) percorre o
+fluxo de negócio inteiro, nos dois serviços, e dá para rodar com **Run collection**. Cada execução cria
+veterinário, responsável e CPF novos, então pode ser repetida. Os scripts guardam os tokens e os ids em
+variáveis da coleção (`javaUrl` e `dotnetUrl` já apontam para o ambiente no ar).
 
-## Prints das chamadas (Postman) — sprints anteriores
+| Pasta | O que mostra |
+|---|---|
+| 1. Veterinário (Java) | Registro, login e unidade; devolve o token JWT |
+| 2. Responsável (.NET) | Cadastro, login, endereço e contato |
+| 3. Pet | Veterinário cadastra o pet pelo CPF; responsável lista pelo gateway; URL assinada da foto |
+| 4. Consulta | Agendar pelo gateway, agenda ocupada (`409`), data no passado (`409`), queixas e remarcação |
+| 5. Atendimento com IA | Rascunho, aprovação, receita, resumo de exame e vacina com próxima dose |
+| 6. Lembretes no .NET | Lembretes e doses que chegaram pela fila |
+| 7. Segurança | `401`, `403` e `404` esperados |
+| 8. Limpeza | Apaga o pet com o histórico |
 
-Fluxo seguindo as regras de negócio da solução, na ordem em que as entidades dependem umas das
-outras. **As capturas são da Sprint 2, anteriores ao Spring Security**: para reproduzi-las hoje,
-autentique-se antes (ver [Acesso à aplicação](#acesso-à-aplicação)) e envie o cabeçalho
-`Authorization: Bearer <token>` em todas as chamadas. As coleções estão em `docs/`
-(`PetHub API.postman_collection.json` e `PetHub_Sprint3.postman_collection.json`).
+Observações para quem testa:
 
-### 01 - Criar unidade veterinaria - `POST /api/unidades`
-<img width="363" height="571" alt="image" src="https://github.com/user-attachments/assets/584b69f9-941f-45be-badf-9bffca58c44f" />
-
-### 02 - Criar veterinario - `POST /api/veterinarios`
-<img width="376" height="557" alt="image" src="https://github.com/user-attachments/assets/e44c2f88-2d4c-4f64-b62f-1c540a289cea" />
-
-### 03 - Criar responsavel - `POST /api/responsaveis`
-<img width="410" height="505" alt="image" src="https://github.com/user-attachments/assets/32113249-fd3d-42cc-b5a2-01457aa3d179" />
-
-### 04 - Adicionar contato do responsavel - `POST /api/responsaveis/{id}/contatos`
-<img width="375" height="398" alt="image" src="https://github.com/user-attachments/assets/06355eef-2767-439e-bbf6-c97609fe8e78" />
-
-### 05 - Adicionar endereco do responsavel - `POST /api/responsaveis/{id}/enderecos`
-<img width="387" height="574" alt="image" src="https://github.com/user-attachments/assets/b9b2ec26-44a8-4894-acb1-d7ef0acaa112" />
-
-### 06 - Criar pet - `POST /api/pets`
-<img width="443" height="572" alt="image" src="https://github.com/user-attachments/assets/c6b7f33d-8694-4f31-acc5-8e710b475d52" />
-
-### 07 - Criar consulta - `POST /api/consultas`
-<img width="376" height="538" alt="image" src="https://github.com/user-attachments/assets/aa97af95-9398-4760-aa5c-0eade88b003e" />
-
-### 08 - Criar diagnostico - `POST /api/diagnosticos`
-<img width="408" height="902" alt="image" src="https://github.com/user-attachments/assets/18099359-a6e6-4e02-8d8c-6dea54bf9f60" />
-
-### 09 - Criar exame - `POST /api/exames`
-<img width="411" height="493" alt="image" src="https://github.com/user-attachments/assets/0bc54a79-ad0b-4728-9a49-4753e00ed110" />
-
-### 10 - Criar pedido medico - `POST /api/pedidos-medicos`
-<img width="412" height="519" alt="image" src="https://github.com/user-attachments/assets/94be250e-0e62-4181-bbde-705bf7025646" />
-
-### 11 - Criar vacina/tratamento - `POST /api/vacinas-tratamentos`
-<img width="435" height="564" alt="image" src="https://github.com/user-attachments/assets/040d7cf3-37c2-4d4c-8fff-72a16ec0ea72" />
-
-### 12 - Criar lembrete - `POST /api/lembretes`
-<img width="419" height="608" alt="image" src="https://github.com/user-attachments/assets/0eab360e-61bf-4e13-a560-0b8e48bc1f7a" />
-
-### 13 - Atualizar status do lembrete - `PATCH /api/lembretes/1/status?status={status}`
-<img width="440" height="547" alt="image" src="https://github.com/user-attachments/assets/2e197512-fd7c-4a60-b587-2ac3af0548ad" />
-
-> Listagem para confirmação de informações
-
-### Buscar Responsável por CPF - `GET /api/responsaveis/buscar?cpf={CPF}`
-<img width="452" height="797" alt="image" src="https://github.com/user-attachments/assets/aac50b5a-ea0a-48cf-9e2e-ab84564ae394" />
-
-### Buscar Responsável por ID - `GET /api/responsaveis/{id}`
-<img width="449" height="767" alt="image" src="https://github.com/user-attachments/assets/8b6c9ba9-51cd-410e-865e-21f6bdd86af2" />
-
-### Listando Unidades Vets junto com os Veterinarios registrados - `GET /api/unidades`
-<img width="376" height="886" alt="image" src="https://github.com/user-attachments/assets/dc1b7172-d109-4b4a-a817-260dd4200321" />
+- o passo **5.1** chama o Groq de verdade e responde `503` se o serviço de IA não estiver configurado;
+- o passo **6.1** pode vir vazio nos primeiros segundos, enquanto a fila entrega; envie de novo;
+- as chamadas de arquivo devolvem só a URL assinada; o envio do arquivo ao bucket é feito pelo aplicativo;
+- as coleções `PetHub API` e `PetHub_Sprint3` em `docs/` são das sprints anteriores e não refletem o fluxo atual.
