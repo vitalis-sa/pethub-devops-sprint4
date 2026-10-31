@@ -12,6 +12,8 @@ e dos lembretes. Veja a [arquitetura de microsserviços](#arquitetura-de-micross
 | Artefato | Link |
 |---|---|
 | Repositório GitHub (Java) | https://github.com/vitalis-sa/pethub-java |
+| Repositório GitHub (.NET, Vitalis) | https://github.com/vitalis-sa/PetHub-.NET |
+| Repositório GitHub (aplicativo mobile) | https://github.com/FIAP-MOBILE-2026-Fevereiro/2tdspv-challenge-vitalis |
 | Vídeo de apresentação (Sprint 4) | https://youtu.be/fIsw9z4U3s8 |
 | Aplicação online: serviço Java (clínico) | https://pethub-java.cloud.run |
 | Swagger do Java no ar | https://pethub-java.cloud.run/swagger-ui.html |
@@ -733,6 +735,48 @@ fiap.pethub
 | Tratamento de erros/exceções | ✅ | GlobalExceptionHandler com 6+ handlers |
 | Utilização de DTOs | ✅ | 15+ DTOs request/response + MapStruct |
 | Documentação com Swagger | ✅ | OpenAPI 3.0 + Swagger UI |
+
+## Evidências do deploy e das integrações
+
+> **PRINTS A INSERIR.** Salve cada imagem em `docs/img/` com o nome sugerido, apague a linha de aviso e troque pela
+> imagem: `![descrição](docs/img/nome.png)`.
+
+### Serviços no Google Cloud Run
+
+> 📸 **Inserir aqui:** print do console do GCP (Cloud Run > Serviços) mostrando `pethub-java` e o serviço .NET com status verde.
+> Arquivo: `docs/img/cloud-run-servicos.png`
+
+> 📸 **Inserir aqui:** print da aba *Variáveis e secrets* do serviço Java (sem mostrar os valores).
+> Arquivo: `docs/img/cloud-run-variaveis.png`
+
+### Fila RabbitMQ (CloudAMQP)
+
+> 📸 **Inserir aqui:** print do painel do CloudAMQP/RabbitMQ com a fila `pethub.lembretes.queue` e as mensagens publicadas e consumidas.
+> Arquivo: `docs/img/cloudamqp-fila.png`
+
+> 📸 **Inserir aqui:** print do log do Cloud Run do Java com "Lembrete publicado".
+> Arquivo: `docs/img/log-lembrete-publicado.png`
+
+### E-mail de confirmação (Brevo)
+
+> 📸 **Inserir aqui:** print do e-mail de confirmação de consulta recebido na caixa de entrada.
+> Arquivo: `docs/img/email-confirmacao.png`
+
+### Banco e Swagger
+
+> 📸 **Inserir aqui:** print das tabelas no Oracle e da tabela `flyway_schema_history`.
+> Arquivo: `docs/img/oracle-flyway.png`
+
+> 📸 **Inserir aqui:** print do Swagger do Java no ar (`/swagger-ui.html`) com os grupos de IA e Arquivos.
+> Arquivo: `docs/img/swagger-visao-geral-sprint4.png`
+
+### Postman e aplicativo
+
+> 📸 **Inserir aqui:** print do resultado do *Run collection* da coleção da Sprint 4, tudo verde.
+> Arquivo: `docs/img/postman-run-collection.png`
+
+> 📸 **Inserir aqui:** prints das telas do aplicativo (veterinário e responsável).
+> Arquivo: `docs/img/app-telas.png`
 
 ## Prints do Swagger UI (todos os endpoints)
 
