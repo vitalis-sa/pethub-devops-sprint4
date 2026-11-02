@@ -2,10 +2,9 @@
 # CI do PetHub (serviço clínico: Java 21 + Spring Boot)
 #
 # Dispara a cada push na branch master e:
-#   1. restaura o cache das dependências do Maven;
-#   2. compila, roda os testes automatizados e empacota o .jar;
-#   3. publica o resultado dos testes na aba "Tests" da execução;
-#   4. publica o .jar como artefato "pethub-jar" no Azure DevOps.
+#   1. compila, roda os testes automatizados e empacota o .jar;
+#   2. publica o resultado dos testes na aba "Tests" da execução;
+#   3. publica o .jar como artefato "pethub-jar" no Azure DevOps.
 #
 # O CD é a Release clássica "pethub-cd": ela tem o gatilho de
 # implantação contínua ligado a este artefato e publica o .jar no
@@ -13,6 +12,11 @@
 #
 # Nenhum segredo passa por aqui: os testes são unitários (o único que
 # precisa do Oracle tem a tag "integracao" e fica de fora no CI).
+#
+# Sem Cache@2: nesta organização a task falha antes de rodar com
+# "Value cannot be null. Parameter name: securityNamespace"
+# (microsoft/azure-pipelines-tasks#11291). Sem cache, o Maven baixa as
+# dependências a cada execução, o que custa menos de um minuto.
 # =====================================================================
 
 trigger:
@@ -25,9 +29,6 @@ pr: none
 pool:
   vmImage: ubuntu-latest
 
-variables:
-  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
-
 stages:
   - stage: CI
     displayName: CI - build, testes e artefato
@@ -35,20 +36,12 @@ stages:
       - job: build
         displayName: Build e testes (Maven, JDK 21)
         steps:
-          - task: Cache@2
-            displayName: Cache das dependências do Maven
-            inputs:
-              key: 'maven | "$(Agent.OS)" | pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-              path: $(MAVEN_CACHE_FOLDER)
-
           - task: Maven@4
             displayName: Compilar, testar e empacotar
             inputs:
               mavenPOMFile: pom.xml
               goals: clean package
-              options: -B -DexcludedGroups=integracao -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)
+              options: -B -DexcludedGroups=integracao
               javaHomeOption: Path
               jdkDirectory: $(JAVA_HOME_21_X64)
               publishJUnitResults: true
