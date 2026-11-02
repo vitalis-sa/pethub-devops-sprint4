@@ -24,8 +24,8 @@ import java.util.TimeZone;
  */
 @OpenAPIDefinition(
     info = @Info(
-        title = "PetHub API — Java Backend",
-        version = "1.1.0",
+        title = "PetHub API — Java Backend (Sprint 4 · Azure DevOps)",
+        version = "1.2.0",
         description = "API responsável por Veterinários, Unidades Veterinárias, Pets, Consultas, Exames, Diagnósticos, Vacinas/Tratamentos e Pedidos Médicos.",
         contact = @Contact(
             name = "PetHub Team",
