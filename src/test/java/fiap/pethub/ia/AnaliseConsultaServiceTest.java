@@ -166,7 +166,9 @@ class AnaliseConsultaServiceTest {
 
     @Test
     void aprovarDeNovoSubstituiEmVezDeCriarOutra() {
-        AnaliseConsulta antiga = AnaliseConsulta.builder().id(99L).anamnese("velha").receita("velha").build();
+        // Como no banco (consulta_id NOT NULL), a análise gravada sempre traz a consulta.
+        AnaliseConsulta antiga = AnaliseConsulta.builder().id(99L).consulta(Consulta.builder().id(5L).build())
+                .anamnese("velha").receita("velha").build();
         consultaExistente(StatusConsulta.AGENDADA);
         when(repository.findByConsultaId(5L)).thenReturn(Optional.of(antiga));
         when(repository.save(any(AnaliseConsulta.class))).thenAnswer(i -> i.getArgument(0));
