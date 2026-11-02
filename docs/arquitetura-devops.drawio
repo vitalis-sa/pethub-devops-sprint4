@@ -1,0 +1,195 @@
+<mxfile host="drawio" agent="pethub-devops-sprint4">
+  <diagram id="arquitetura" name="Arquitetura e CI/CD">
+    <mxGraphModel dx="1700" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1000" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Título -->
+        <mxCell id="titulo" value="&lt;b style=&quot;font-size:22px&quot;&gt;PetHub · Arquitetura e fluxo CI/CD&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:13px;color:#555&quot;&gt;Sprint 4 · DevOps Tools &amp;amp; Cloud Computing · serviço clínico (Java) no Azure Web App com Oracle da FIAP&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="1100" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== ZONAS ===================== -->
+        <mxCell id="zDev" value="Desenvolvimento" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="20" y="90" width="240" height="420" as="geometry" />
+        </mxCell>
+        <mxCell id="zGit" value="GitHub" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;fillColor=#F6F8FA;strokeColor=#24292F;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="290" y="90" width="230" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="zAdo" value="Azure DevOps · projeto &quot;Sprint 4 – Azure DevOps&quot; (Private · Git · Scrum)" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;dashed=1;fillColor=#EEF6FF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=56;spacingTop=12;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="550" y="90" width="730" height="420" as="geometry" />
+        </mxCell>
+        <mxCell id="zAgente" value="Agente hospedado ubuntu-latest · JDK 21" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=center;spacingTop=4;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="740" y="150" width="270" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="zAzure" value="Microsoft Azure · assinatura Azure for Students" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;dashed=1;fillColor=#F0F7FF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=56;spacingTop=12;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="550" y="550" width="730" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="zRg" value="Resource Group rg-rm566234-sprint4 (brazilsouth)" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5EA0EF;verticalAlign=top;align=left;spacingLeft=46;spacingTop=8;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="610" width="670" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="zPlan" value="App Service Plan plan-rm566234-pethub · Linux B1" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;fillColor=#F7FBFF;strokeColor=#5EA0EF;dashed=1;verticalAlign=top;align=left;spacingLeft=46;spacingTop=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="610" y="670" width="610" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="zFiap" value="FIAP · banco de dados em nuvem" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFF5F0;strokeColor=#C74634;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="550" width="350" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="zUsu" value="Usuários" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;fillColor=#F5FFF5;strokeColor=#2E7D32;verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="90" width="350" height="420" as="geometry" />
+        </mxCell>
+
+        <!-- Ícones das zonas -->
+        <mxCell id="icoAdo" value="" style="image;aspect=fixed;html=1;points=[];image=img/lib/azure2/devops/Azure_DevOps.svg;" vertex="1" parent="1">
+          <mxGeometry x="560" y="98" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="icoSub" value="" style="image;aspect=fixed;html=1;points=[];image=img/lib/azure2/general/Subscriptions.svg;" vertex="1" parent="1">
+          <mxGeometry x="562" y="558" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="icoRg" value="" style="image;aspect=fixed;html=1;points=[];image=img/lib/azure2/general/Resource_Groups.svg;" vertex="1" parent="1">
+          <mxGeometry x="590" y="616" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="icoPlan" value="" style="image;aspect=fixed;html=1;points=[];image=img/lib/azure2/app_services/App_Service_Plans.svg;" vertex="1" parent="1">
+          <mxGeometry x="620" y="676" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== COMPONENTES ===================== -->
+        <!-- Desenvolvimento -->
+        <mxCell id="dev" value="&lt;b&gt;Desenvolvedor&lt;/b&gt;&lt;br&gt;(integrante do grupo)" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/azure2/identity/Users.svg;" vertex="1" parent="1">
+          <mxGeometry x="110" y="130" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ide" value="&lt;b&gt;IDE&lt;/b&gt; (VS Code / IntelliJ)&lt;br&gt;Java 21 · Maven · Git" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/azure2/general/Code.svg;" vertex="1" parent="1">
+          <mxGeometry x="110" y="320" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- GitHub -->
+        <mxCell id="github" value="&lt;b&gt;Repositório&lt;/b&gt;&lt;br&gt;vitalis-sa/pethub-devops-sprint4&lt;br&gt;branch &lt;b&gt;master&lt;/b&gt;" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/github.svg;" vertex="1" parent="1">
+          <mxGeometry x="375" y="150" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Azure DevOps -->
+        <mxCell id="ci" value="&lt;b&gt;Pipeline CI&lt;/b&gt;&lt;br&gt;azure-pipelines.yml&lt;br&gt;trigger: master" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/mscae/Azure_Pipelines.svg;" vertex="1" parent="1">
+          <mxGeometry x="610" y="180" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="maven" value="&lt;b&gt;Cache@2 + Maven@4&lt;/b&gt;&lt;br&gt;compila, testa e empacota" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/apachemaven.svg;" vertex="1" parent="1">
+          <mxGeometry x="790" y="190" width="44" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="testes" value="&lt;b&gt;Testes automatizados&lt;/b&gt;&lt;br&gt;JUnit 5 · 142 testes&lt;br&gt;aba Tests" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/mscae/Azure_Test_Plans.svg;" vertex="1" parent="1">
+          <mxGeometry x="920" y="190" width="44" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="artefato" value="&lt;b&gt;Artefato&lt;/b&gt;&lt;br&gt;pethub-jar (.jar)&lt;br&gt;PublishPipelineArtifact" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/mscae/Azure_Artifacts.svg;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="180" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="library" value="&lt;b&gt;Library&lt;/b&gt;: variable group pethub-segredos&lt;br&gt;DB_USER · DB_PASSWORD · JWT_SECRET&lt;br&gt;(secret, com cadeado)" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/mscae/Key.svg;" vertex="1" parent="1">
+          <mxGeometry x="800" y="370" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cd" value="&lt;b&gt;Release CD&lt;/b&gt; pethub-cd&lt;br&gt;gatilho de deploy contínuo&lt;br&gt;task AzureWebApp@1" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/mscae/Azure_Pipelines.svg;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="360" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Azure -->
+        <mxCell id="webapp" value="&lt;b&gt;Web App&lt;/b&gt; rm566234-pethub&lt;br&gt;Java 21 SE · Always On · HTTPS" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/azure2/app_services/App_Services.svg;" vertex="1" parent="1">
+          <mxGeometry x="700" y="740" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="spring" value="&lt;b&gt;API PetHub&lt;/b&gt; (Spring Boot 4)&lt;br&gt;JWT · JPA · Flyway" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=top;verticalAlign=bottom;align=center;fontSize=11;image=https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/springboot.svg;" vertex="1" parent="1">
+          <mxGeometry x="900" y="748" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="swagger" value="&lt;b&gt;Swagger UI&lt;/b&gt;&lt;br&gt;/swagger-ui.html · /api" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/swagger.svg;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="748" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- FIAP -->
+        <mxCell id="oracle" value="&lt;b&gt;Oracle Database da FIAP&lt;/b&gt;&lt;br&gt;oracle.fiap.com.br:1521/orcl&lt;br&gt;schema RM566234&lt;br&gt;Flyway V1 · 10 tabelas" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/azure2/databases/Oracle_Database.svg;" vertex="1" parent="1">
+          <mxGeometry x="1460" y="620" width="70" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Usuários -->
+        <mxCell id="usuario" value="&lt;b&gt;Usuário final&lt;/b&gt;&lt;br&gt;(veterinário)" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/azure2/identity/Users.svg;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="140" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="professor" value="&lt;b&gt;Professor&lt;/b&gt;&lt;br&gt;Basic + admin do projeto" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/azure2/identity/Users.svg;" vertex="1" parent="1">
+          <mxGeometry x="1555" y="140" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="cliente" value="&lt;b&gt;Navegador /&lt;br&gt;REST Client&lt;/b&gt;&lt;br&gt;CRUD de Veterinário&lt;br&gt;e Unidade" style="image;aspect=fixed;html=1;points=[];labelPosition=right;verticalLabelPosition=middle;verticalAlign=middle;align=left;spacingLeft=4;fontSize=11;image=img/lib/azure2/general/Browser.svg;" vertex="1" parent="1">
+          <mxGeometry x="1465" y="350" width="60" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== FLUXO NUMERADO ===================== -->
+        <mxCell id="eDevIde" value="edita o código" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#666666;fontSize=11;labelBackgroundColor=#F5F5F5;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="dev" target="ide">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="60" y="160" /><mxPoint x="60" y="350" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;1&lt;/b&gt; git push na master" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#0078D4;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="ide" target="github">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="280" y="350" /><mxPoint x="280" y="180" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;2&lt;/b&gt; dispara o CI&lt;br&gt;(service connection GitHub)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#0078D4;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="github" target="ci">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;3&lt;/b&gt; build" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#0078D4;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="ci" target="maven">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;4&lt;/b&gt; testes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#0078D4;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="maven" target="testes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;5&lt;/b&gt; publica&lt;br&gt;o artefato" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#0078D4;fontSize=11;labelBackgroundColor=#EEF6FF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="testes" target="artefato">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;6&lt;/b&gt; novo artefato&lt;br&gt;dispara o CD" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#0078D4;fontSize=11;labelBackgroundColor=#EEF6FF;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="artefato" target="cd">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1220" y="210" /><mxPoint x="1220" y="390" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eSeg" value="segredos protegidos" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;dashed=1;strokeColor=#B8860B;fontSize=11;labelBackgroundColor=#EEF6FF;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" edge="1" parent="1" source="library" target="cd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;7&lt;/b&gt; deploy do .jar + app settings&lt;br&gt;(service connection Azure Resource Manager)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#0078D4;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.85;entryX=0;entryY=0.5;" edge="1" parent="1" source="cd" target="webapp">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1000" y="411" /><mxPoint x="1000" y="530" /><mxPoint x="535" y="530" /><mxPoint x="535" y="772" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eRun" value="executa" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#666666;fontSize=11;labelBackgroundColor=#F7FBFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="webapp" target="spring">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eDoc" value="expõe" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#666666;fontSize=11;labelBackgroundColor=#F7FBFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="spring" target="swagger">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;8&lt;/b&gt; JDBC (ojdbc11)&lt;br&gt;+ Flyway no boot" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;startArrow=block;startFill=1;strokeWidth=2.5;strokeColor=#C74634;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0;entryY=0.75;" edge="1" parent="1" source="spring" target="oracle">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="924" y="870" /><mxPoint x="1300" y="870" /><mxPoint x="1300" y="672" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eUsu" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#2E7D32;fontSize=11;labelBackgroundColor=#F5FFF5;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="usuario" target="cliente">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1495" y="170" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eProf" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#2E7D32;fontSize=11;labelBackgroundColor=#F5FFF5;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="professor" target="cliente">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1495" y="170" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eProfAdo" value="acompanha pipelines e releases" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=1.5;dashed=1;strokeColor=#2E7D32;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="professor" target="zAdo">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1585" y="76" /><mxPoint x="1097" y="76" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="&lt;b style=&quot;background:#0078D4;color:#fff;padding:1px 6px;border-radius:9px&quot;&gt;9&lt;/b&gt; HTTPS: Swagger e /api (CRUD)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#2E7D32;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="cliente" target="swagger">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1300" y="375" /><mxPoint x="1300" y="540" /><mxPoint x="1104" y="540" /></Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Legenda -->
+        <mxCell id="legenda" value="&lt;b&gt;Legenda&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;color:#0078D4&quot;&gt;━━&lt;/span&gt; esteira CI/CD, na ordem numerada (1 a 7)&lt;br&gt;&lt;span style=&quot;color:#C74634&quot;&gt;━━&lt;/span&gt; acesso ao banco (8)&lt;br&gt;&lt;span style=&quot;color:#2E7D32&quot;&gt;━━&lt;/span&gt; acesso dos usuários (9)&lt;br&gt;&lt;span style=&quot;color:#B8860B&quot;&gt;┅┅&lt;/span&gt; variáveis protegidas" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fillColor=#FFFFFF;strokeColor=#CCCCCC;spacing=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="20" y="550" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="stack" value="&lt;b&gt;Stack&lt;/b&gt;&lt;br&gt;Java 21 · Spring Boot 4.0.6 · Spring Security (JWT) · JPA/Hibernate · Flyway · Maven · JUnit 5/Mockito&lt;br&gt;GitHub · Azure DevOps (Pipelines YAML, Releases, Library) · Azure App Service (Web App Linux B1) · Oracle Database (FIAP)" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fillColor=#FFFFFF;strokeColor=#CCCCCC;spacing=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="20" y="680" width="500" height="110" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
