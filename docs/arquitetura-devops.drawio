@@ -71,7 +71,7 @@
         <mxCell id="ci" value="&lt;b&gt;Pipeline CI&lt;/b&gt;&lt;br&gt;azure-pipelines.yml&lt;br&gt;trigger: master" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/mscae/Azure_Pipelines.svg;" vertex="1" parent="1">
           <mxGeometry x="610" y="180" width="60" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="maven" value="&lt;b&gt;Cache@2 + Maven@4&lt;/b&gt;&lt;br&gt;compila, testa e empacota" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/apachemaven.svg;" vertex="1" parent="1">
+        <mxCell id="maven" value="&lt;b&gt;Maven@4&lt;/b&gt;&lt;br&gt;compila, testa e empacota" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/apachemaven.svg;" vertex="1" parent="1">
           <mxGeometry x="790" y="190" width="44" height="44" as="geometry" />
         </mxCell>
         <mxCell id="testes" value="&lt;b&gt;Testes automatizados&lt;/b&gt;&lt;br&gt;JUnit 5 · 142 testes&lt;br&gt;aba Tests" style="image;aspect=fixed;html=1;points=[];verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=11;image=img/lib/mscae/Azure_Test_Plans.svg;" vertex="1" parent="1">

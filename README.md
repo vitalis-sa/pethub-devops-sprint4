@@ -55,7 +55,7 @@ Fluxo numerado (o mesmo do diagrama):
 
 1. O **desenvolvedor** altera o código na IDE e faz `git push` para a branch `master` no **GitHub**.
 2. O push dispara a pipeline de **CI** no **Azure DevOps** (gatilho `trigger: master` do `azure-pipelines.yml`).
-3. Um agente hospedado (`ubuntu-latest`, JDK 21) restaura o cache do Maven, **compila e roda os testes automatizados**.
+3. Um agente hospedado (`ubuntu-latest`, JDK 21) **compila e roda os testes automatizados**.
 4. O resultado dos testes é publicado na aba **Tests** da execução.
 5. O `.jar` executável é publicado como **artefato `pethub-jar`** no Azure DevOps.
 6. O novo artefato aciona o **gatilho de implantação contínua** da Release **`pethub-cd`** (CD).
@@ -105,7 +105,6 @@ Pipeline YAML conectada a este repositório do GitHub por uma *service connectio
 
 | Task | O que faz |
 |---|---|
-| `Cache@2` | Restaura e salva o repositório local do Maven (`~/.m2`), deixando as execuções seguintes mais rápidas |
 | `Maven@4` (`clean package`) | Compila com JDK 21, **roda os testes automatizados** e empacota o `.jar` (Spring Boot) |
 | ↳ `publishJUnitResults` | Publica os relatórios JUnit (`surefire-reports`) na aba **Tests** |
 | `CopyFiles@2` | Separa o `.jar` executável em `$(Build.ArtifactStagingDirectory)` |
