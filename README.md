@@ -14,7 +14,7 @@ artefato dispara o deploy automático no **Azure Web App**, que usa o **Oracle d
 | Item | Link |
 |---|---|
 | Repositório GitHub | https://github.com/vitalis-sa/pethub-devops-sprint4 |
-| Projeto no Azure DevOps | _(preencher: https://dev.azure.com/&lt;organização&gt;/Sprint%204%20%E2%80%93%20Azure%20DevOps)_ |
+| Projeto no Azure DevOps | https://dev.azure.com/RM565154/Sprint%204%20%E2%80%93%20Azure%20DevOps |
 | Vídeo no YouTube | _(preencher)_ |
 | Aplicação no Azure Web App | https://rm566234-pethub.azurewebsites.net/swagger-ui.html |
 
