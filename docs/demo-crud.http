@@ -1,0 +1,127 @@
+# =====================================================================
+# Roteiro do CRUD do vídeo, contra a aplicação publicada no Azure Web App.
+# Abra no VS Code com a extensão "REST Client" (ou copie para o Postman).
+# Depois de CADA operação, rode o SELECT correspondente em
+# database/consultas-video.sql para mostrar a persistência no Oracle.
+#
+# Entidades: Veterinário (TB_VETERINARIO) e Unidade veterinária
+# (TB_UNIDADE_VETERINARIO). Nenhuma das duas depende de serviço externo.
+# =====================================================================
+
+@host = https://rm566234-pethub.azurewebsites.net
+
+### 0. Cadastra o veterinário que opera a demo (já devolve o token JWT)
+# @name operador
+POST {{host}}/api/auth/registrar/veterinario
+Content-Type: application/json
+
+{
+  "nome": "Dra. Operadora da Demo",
+  "crmv": "SP-90001",
+  "especialidade": "Clínica geral",
+  "email": "operadora.demo@pethub.com",
+  "telefone": "11990000001",
+  "senha": "demo123456"
+}
+
+### 0b. (Se o operador já existir) Login para pegar um token novo
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "operadora.demo@pethub.com",
+  "senha": "demo123456"
+}
+
+@token = {{operador.response.body.token}}
+# Se usou o login (0b), troque a linha acima por:
+# @token = {{login.response.body.token}}
+
+#######################################################################
+# CRUD 1 - UNIDADE VETERINÁRIA
+#######################################################################
+
+### 1.1 INSERIR unidade
+# @name unidade
+POST {{host}}/api/unidades
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nome": "Vitalis Pinheiros",
+  "logradouro": "Rua dos Pinheiros",
+  "numero": "870",
+  "bairro": "Pinheiros",
+  "cidade": "São Paulo",
+  "estado": "SP",
+  "cep": "05422001"
+}
+
+@unidadeId = {{unidade.response.body.id}}
+
+### 1.2 CONSULTAR unidade
+GET {{host}}/api/unidades/{{unidadeId}}
+Authorization: Bearer {{token}}
+
+### 1.3 ATUALIZAR unidade (muda o nome e o número)
+PUT {{host}}/api/unidades/{{unidadeId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nome": "Vitalis Pinheiros 24h",
+  "logradouro": "Rua dos Pinheiros",
+  "numero": "900",
+  "bairro": "Pinheiros",
+  "cidade": "São Paulo",
+  "estado": "SP",
+  "cep": "05422001"
+}
+
+### 1.4 DELETAR unidade
+DELETE {{host}}/api/unidades/{{unidadeId}}
+Authorization: Bearer {{token}}
+
+#######################################################################
+# CRUD 2 - VETERINÁRIO
+#######################################################################
+
+### 2.1 INSERIR veterinário
+# @name vet
+POST {{host}}/api/veterinarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nome": "Dr. Carlos Demo",
+  "crmv": "SP-90002",
+  "especialidade": "Dermatologia",
+  "email": "carlos.demo@pethub.com",
+  "telefone": "11990000002",
+  "senha": "demo123456"
+}
+
+@vetId = {{vet.response.body.id}}
+
+### 2.2 CONSULTAR veterinário
+GET {{host}}/api/veterinarios/{{vetId}}
+Authorization: Bearer {{token}}
+
+### 2.3 ATUALIZAR veterinário (muda especialidade e telefone)
+PUT {{host}}/api/veterinarios/{{vetId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nome": "Dr. Carlos Demo",
+  "crmv": "SP-90002",
+  "especialidade": "Cardiologia",
+  "email": "carlos.demo@pethub.com",
+  "telefone": "11990000099",
+  "senha": "demo123456"
+}
+
+### 2.4 DELETAR veterinário
+DELETE {{host}}/api/veterinarios/{{vetId}}
+Authorization: Bearer {{token}}
