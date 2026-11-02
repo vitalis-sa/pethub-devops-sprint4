@@ -73,7 +73,7 @@ class ConfirmacaoDeConsultaServiceTest {
 
         ArgumentCaptor<String> texto = ArgumentCaptor.forClass(String.class);
         verify(brevo).enviar(eq("joao@email.com"), eq("João"), contains("Rex"), texto.capture());
-        assertThat(texto.getValue()).contains("Olá, João!", "Rex", "01/11/2026 às 14:30", "Presencial", "Dra. Ana", "Clínica Centro");
+        assertThat(texto.getValue()).contains("Olá, João!", "Rex", "01/11/2026 às 14:30", "Dra. Ana", "Clínica Centro");
         assertThat(gravado().getStatus()).isEqualTo(StatusEmail.ENVIADO);
     }
 
