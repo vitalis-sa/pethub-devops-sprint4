@@ -32,7 +32,7 @@ de **CI/CD no Azure DevOps**:
 |---|---|
 | Repositório GitHub | https://github.com/vitalis-sa/pethub-devops-sprint4 |
 | Projeto no Azure DevOps | https://dev.azure.com/RM565154/Sprint%204%20%E2%80%93%20Azure%20DevOps |
-| Vídeo no YouTube | _(preencher)_ |
+| Vídeo no YouTube | https://www.youtube.com/watch?v=ayJN2ow7ZkE |
 | Aplicação no Azure Web App (Swagger UI) | https://rm566234-pethub.azurewebsites.net/swagger-ui.html |
 
 ---
